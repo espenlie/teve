@@ -1,12 +1,12 @@
 <html>
   <head>
-    <title>{{.User}} :: TV</title>
+  <title>{{.User}} :: {{ .CurrentChannel }} :: teve</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
   </head>
   <body>
   <h3>Hello {{.User}}</h3>
   <hr>
-  <p>You are playing: {{.CurrentChannel}}
+  <p>You are playing: <b>{{.CurrentChannel}}</b>
     {{if .Running }}
       (<a href="/uni?user={{.User}}&kchannel=1">Kill stream</a>)
       <form action="/uni" method="get">
@@ -22,7 +22,7 @@
       <hr>
     {{end}}
   </p>
-  <p>Would you rather play?</p>
+  <p>Channel to be broadcasted on your stream:</p>
   <ul>
     {{$user := .User}}
     {{$transcoding := .Transcoding}}
