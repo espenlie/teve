@@ -10,6 +10,9 @@ import (
     "strconv"
     "strings"
     "errors"
+    "time"
+    "database/sql"
+    _ "github.com/mattn/go-sqlite3"
 )
 
 type Channel struct {
@@ -18,6 +21,7 @@ type Channel struct {
     Running     bool
     Outgoing    string
     Views       string
+    EPGlist     []EPG
 }
 
 type User struct {
@@ -29,12 +33,20 @@ type Config struct {
   Channels []Channel
   Users []User
   Hostname string
+  StreamingPort string
+  WebPort string
 }
 
 type Command struct {
   Name string
   Cmd *exec.Cmd
   Transcode bool
+}
+
+type EPG struct {
+  Title string
+  Start string
+  Stop string
 }
 
 var config Config
@@ -64,7 +76,6 @@ func startUniStream(channel Channel, user User, transcoding bool) (error) {
     command += "#"
   }
   command += output
-  fmt.Println(command)
   cmd := exec.Command("bash", "-c", command)
   err := cmd.Start()
   if (err != nil) { return err }
@@ -105,10 +116,36 @@ func getChannel(channel_name string) (Channel, error) {
   return Channel{}, errors.New("Did not find specified channel name")
 }
 
+func getEpgData() {
+  dbh, err := sql.Open("sqlite3", "./epg.db")
+  if (err != nil) { fmt.Printf("Problems with EPG db" + err.Error()); return }
+  for i, channel := range config.Channels {
+    config.Channels[i].EPGlist = []EPG{}
+    rows, err := dbh.Query(`SELECT title, start, stop
+                            FROM epg
+                            WHERE channel=? 
+                            AND datetime(stop) > datetime('now')
+                            LIMIT 3`, channel.Name)
+    if (err != nil) { fmt.Printf("Problems with query: " + err.Error()); return }
+    for rows.Next() {
+      var title,start,stop string
+      _ = rows.Scan(&title,&start,&stop)
+      layout := "2006-01-02T15:04:05-07:00"
+      sta, _ := time.Parse(layout, start)
+      sto, _ := time.Parse(layout, stop)
+      out_layout := "15:04"
+      epg := EPG{Title: title, Start: sta.Format(out_layout), Stop: sto.Format(out_layout)}
+      config.Channels[i].EPGlist = append(config.Channels[i].EPGlist, epg)
+    }
+  }
+}
+
 func uniPageHandler(w http.ResponseWriter, r *http.Request) {
   // Ensure user has logged in.
   user, err := getUser(r.FormValue("user"))
   if (err != nil) { fmt.Fprintf(w, "You need to login: " + err.Error()); return }
+
+  getEpgData()
 
   currentChannel := "-"
 
@@ -160,6 +197,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
   d["User"] = user.Name
   d["CurrentChannel"] = currentChannel
   d["Transcoding"] = transcoding
+  d["URL"] = fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
   if currentChannel != "-" { d["Running"] = true } else { d["Running"] = false }
   t.Execute(w, d)
 }
@@ -236,9 +274,17 @@ func indexPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 /* END OF OLD IMPLEMENTATION */
 
+func serveSingle(pattern string, filename string) {
+  http.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
+    http.ServeFile(w, r, filename)
+  })
+}
+
 func main() {
     config = loadConfig("config.json")
     http.HandleFunc("/uni", uniPageHandler)
     http.HandleFunc("/", indexPageHandler)
-    http.ListenAndServe(":13000", nil)
+    serveSingle("/favicon.ico", "./static/favicon.ico")
+    http.Handle("/static", http.FileServer(http.Dir("./static/")))
+    http.ListenAndServe(":"+config.WebPort, nil)
 }

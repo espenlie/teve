@@ -1,4 +1,8 @@
 <html>
+  <head>
+    <title>{{.User}} :: TV</title>
+    <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+  </head>
   <body>
   <h3>Hello {{.User}}</h3>
   <p>You are playing: {{.CurrentChannel}}
@@ -9,14 +13,25 @@
       {{else}}
         (<a href="/uni?user={{.User}}&channel={{.CurrentChannel}}&transcoding=true">Enable transcoding</a>)
       {{end}}
+      <p>Your URL is: <b><em>{{.URL}}</em></b></p>
     {{end}}
   </p>
   <p>Would you rather play?</p>
   <ul>
-    {{$user:= .User}}
-    {{$transcoding:= .Transcoding}}
+    {{$user := .User}}
+    {{$transcoding := .Transcoding}}
     {{range .Channels}}
-    <li><a href="/uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}">{{.Name}}</a></li>
+    <li>
+      <a href="/uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}">{{.Name}}</a>
+      <ul>
+        {{range $index, $epg := .EPGlist}}
+        <li>
+        {{if not $index}}<b>{{end}}
+            {{.Start}} => {{$epg.Stop}}: {{$epg.Title}}</li>
+        {{ if not $index}}</b>{{end}}
+        {{end}}
+      </ul>
+    </li>
     {{end}}
   </ul>
   </body>
