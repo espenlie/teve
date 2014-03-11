@@ -22,7 +22,13 @@ You need add users and define your *hostname* in the `config.json` file.
 
 Run this command once a day:
 
-`$ ./epgsync epg.db`
+`$ ./epg/epgsync epg.db`
+
+To get started, you may find it simplest to just start a virtualenv:
+
+    $ virtualenv --system-site-packages epg/venv
+    $ source epg/venv/bin/activate
+    $ pip install -r epg/requirements.txt
 
 ### Dependencies
 

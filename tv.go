@@ -117,7 +117,7 @@ func getChannel(channel_name string) (Channel, error) {
 }
 
 func getEpgData() {
-  dbh, err := sql.Open("sqlite3", "./epg.db")
+  dbh, err := sql.Open("sqlite3", "./epg/epg.db")
   if (err != nil) { fmt.Printf("Problems with EPG db" + err.Error()); return }
   for i, channel := range config.Channels {
     config.Channels[i].EPGlist = []EPG{}
