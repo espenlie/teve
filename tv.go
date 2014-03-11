@@ -40,7 +40,7 @@ type Config struct {
 type Command struct {
   Name string
   Cmd *exec.Cmd
-  Transcode bool
+  Transcode int
 }
 
 type EPG struct {
@@ -65,12 +65,12 @@ func loadConfig(filename string) Config {
     return config
 }
 
-func startUniStream(channel Channel, user User, transcoding bool) (error) {
-  transcoding_opts := "#transcode{vcodec=h264,vb=2000,acodec=aac,ab=128}:"
+func startUniStream(channel Channel, user User, transcoding int) (error) {
+  transcoding_opts := fmt.Sprintf("#transcode{vcodec=h264,vb=%v,acodec=aac,ab=128}:", transcoding)
   output := fmt.Sprintf("std{access=http,mux=ts,dst=:140%v/%v}'", user.Id, user.Name)
   command := fmt.Sprintf("cvlc %v --sout '", channel.Address)
 
-  if transcoding {
+  if transcoding != 0 {
     command += transcoding_opts
   } else {
     command += "#"
@@ -149,18 +149,16 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 
   currentChannel := "-"
 
-  transcoding := false
+  transcoding := 0
   if _, ok := streams[user.Name]; ok {
     currentChannel = streams[user.Name].Name
-    transcoding = streams[user.Name].Transcode
   }
 
   // Check if we want to transcode the stream.
   form_transcoding := r.FormValue("transcoding")
-  if form_transcoding == "true" {
-    transcoding = true
-  } else if form_transcoding == "false" {
-    transcoding = false
+  if form_transcoding != "0" {
+    transcoding, err = strconv.Atoi(form_transcoding)
+    if (err != nil) { transcoding = 0 }
   }
 
   index := r.FormValue("channel")
@@ -196,7 +194,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
   d["Channels"] = config.Channels
   d["User"] = user.Name
   d["CurrentChannel"] = currentChannel
-  d["Transcoding"] = transcoding
+  d["Transcoding"] = streams[user.Name].Transcode
   d["URL"] = fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
   if currentChannel != "-" { d["Running"] = true } else { d["Running"] = false }
   t.Execute(w, d)

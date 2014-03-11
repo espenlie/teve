@@ -5,15 +5,21 @@
   </head>
   <body>
   <h3>Hello {{.User}}</h3>
+  <hr>
   <p>You are playing: {{.CurrentChannel}}
     {{if .Running }}
       (<a href="/uni?user={{.User}}&kchannel=1">Kill stream</a>)
-      {{if .Transcoding}}
-        (<a href="/uni?user={{.User}}&channel={{.CurrentChannel}}&transcoding=false">Disable transcoding</a>)
-      {{else}}
-        (<a href="/uni?user={{.User}}&channel={{.CurrentChannel}}&transcoding=true">Enable transcoding</a>)
-      {{end}}
-      <p>Your URL is: <b><em>{{.URL}}</em></b></p>
+      <form action="/uni" method="get">
+        <b>Set transcoding: </b>
+        <input type="hidden" name="user" value="{{.User}}">
+        <input type="hidden" name="channel" value="{{.CurrentChannel}}">
+        <input type="text" name="transcoding" value="{{.Transcoding}}">
+        <input type="submit" value="Set"></input>
+      </form>
+      <em>(0 for no transcoding enabled)</em>
+      <hr>
+      <p>Your URL is: <a href="{{.URL}}"><b><em>{{.URL}}</em></b></a></p>
+      <hr>
     {{end}}
   </p>
   <p>Would you rather play?</p>
