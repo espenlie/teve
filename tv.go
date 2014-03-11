@@ -141,9 +141,18 @@ func getEpgData() {
 }
 
 func uniPageHandler(w http.ResponseWriter, r *http.Request) {
+  // Show running channel and list of channels.
+  d := make(map[string]interface{})
+  t, err := template.ParseFiles("unistream.html")
+  if (err != nil) { fmt.Fprintf(w, "Could not parse template file: " + err.Error()); return }
+
   // Ensure user has logged in.
   user, err := getUser(r.FormValue("user"))
-  if (err != nil) { fmt.Fprintf(w, "You need to login: " + err.Error()); return }
+  if (err != nil) {
+    d["Users"] = config.Users
+    t.Execute(w, d)
+    return
+  }
 
   getEpgData()
 
@@ -186,11 +195,6 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, url, 302)
   }
 
-  // Show running channel and list of channels.
-  t, err := template.ParseFiles("unistream.html")
-  if (err != nil) { fmt.Fprintf(w, "Could not parse template file: " + err.Error()); return }
-
-  d := make(map[string]interface{})
   d["Channels"] = config.Channels
   d["User"] = user.Name
   d["CurrentChannel"] = currentChannel

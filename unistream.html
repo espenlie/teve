@@ -4,41 +4,50 @@
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
   </head>
   <body>
-  <h3>Hello {{.User}}</h3>
-  <hr>
-  <p>You are playing: <b>{{.CurrentChannel}}</b>
-    {{if .Running }}
-      (<a href="/uni?user={{.User}}&kchannel=1">Kill stream</a>)
-      <form action="/uni" method="get">
-        <b>Set transcoding: </b>
-        <input type="hidden" name="user" value="{{.User}}">
-        <input type="hidden" name="channel" value="{{.CurrentChannel}}">
-        <input type="text" name="transcoding" value="{{.Transcoding}}">
-        <input type="submit" value="Set"></input>
-      </form>
-      <em>(0 for no transcoding enabled)</em>
-      <hr>
-      <p>Your URL is: <a href="{{.URL}}"><b><em>{{.URL}}</em></b></a></p>
-      <hr>
+  {{if .Users}}
+    <p><b>No user selected.</b> Please choose below:</p>
+    <ul>
+    {{range .Users}}
+      <li><a href="/uni?user={{.Name}}">{{.Name}}</a><br /></li>
     {{end}}
-  </p>
-  <p>Channel to be broadcasted on your stream:</p>
-  <ul>
-    {{$user := .User}}
-    {{$transcoding := .Transcoding}}
-    {{range .Channels}}
-    <li>
-      <a href="/uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}">{{.Name}}</a>
-      <ul>
-        {{range $index, $epg := .EPGlist}}
-        <li>
-        {{if not $index}}<b>{{end}}
-            {{.Start}} => {{$epg.Stop}}: {{$epg.Title}}</li>
-        {{ if not $index}}</b>{{end}}
-        {{end}}
-      </ul>
-    </li>
-    {{end}}
-  </ul>
+    </ul>
+  {{else}}
+    <h3>Hello {{.User}}</h3>
+    <hr>
+    <p>You are playing: <b>{{.CurrentChannel}}</b>
+      {{if .Running }}
+        (<a href="/uni?user={{.User}}&kchannel=1">Kill stream</a>)
+        <form action="/uni" method="get">
+          <b>Set transcoding: </b>
+          <input type="hidden" name="user" value="{{.User}}">
+          <input type="hidden" name="channel" value="{{.CurrentChannel}}">
+          <input type="text" name="transcoding" value="{{.Transcoding}}">
+          <input type="submit" value="Set"></input>
+        </form>
+        <em>(0 for no transcoding enabled)</em>
+        <hr>
+        <p>Your URL is: <a href="{{.URL}}"><b><em>{{.URL}}</em></b></a></p>
+        <hr>
+      {{end}}
+    </p>
+    <p>Channel to be broadcasted on your stream:</p>
+    <ul>
+      {{$user := .User}}
+      {{$transcoding := .Transcoding}}
+      {{range .Channels}}
+      <li>
+        <a href="/uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}">{{.Name}}</a>
+        <ul>
+          {{range $index, $epg := .EPGlist}}
+          <li>
+          {{if not $index}}<b>{{end}}
+              {{.Start}} => {{$epg.Stop}}: {{$epg.Title}}</li>
+          {{ if not $index}}</b>{{end}}
+          {{end}}
+        </ul>
+      </li>
+      {{end}}
+    </ul>
+  {{end}}
   </body>
 </html>
