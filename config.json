@@ -1,0 +1,31 @@
+{
+  "Channels": [
+      {"Name" : "NRK1 HD",						   "Address": "udp://@239.1.1.20:1234"},
+      {"Name" : "NRK2",							     "Address": "udp://@239.1.1.18:1234"},
+      {"Name" : "NRK Super",						 "Address": "udp://@239.1.1.19:1234"},
+      {"Name" : "TV2",							     "Address": "udp://@233.155.107.220:57220"},
+      {"Name" : "TV2 Film",						   "Address": "udp://@233.155.107.222:57222"},
+      {"Name" : "TV2 Zebra",						 "Address": "udp://@233.155.107.221:57221"},
+      {"Name" : "TV2 Nyheter",					 "Address": "udp://@233.155.107.223:57223"},
+      {"Name" : "TV2 bliss", 						 "Address": "udp://@233.155.107.25:57000"},
+      {"Name" : "TV2 HD",							   "Address": "udp://@233.155.107.1:57000"},
+      {"Name" : "TV2 Sport", 						 "Address": "udp://@233.155.107.224:57224"},
+      {"Name" : "TV2 Premium",					 "Address": "udp://@233.155.107.81:57000"},
+      {"Name" : "TV2 Premium HD",				 "Address": "udp://@233.155.107.91:57000"},
+      {"Name" : "TV2 Premium2",					 "Address": "udp://@233.155.107.82:57000"},
+      {"Name" : "TV2 Premium2 HD", 			 "Address": "udp://@233.155.107.92:57000"},
+      {"Name" : "TV2 Premium3",					 "Address": "udp://@233.155.107.83:57000"},
+      {"Name" : "TV2 Premium3 HD",			 "Address": "udp://@233.155.107.93:57000"},
+      {"Name" : "Al Jazeera Intl",       "Address": "udp://@239.1.1.22:1234"},
+      {"Name" : "BBC World News",        "Address": "udp://@239.1.1.23:1234"},
+      {"Name" : "CNN International",     "Address": "udp://@239.1.1.28:1234"}
+  ],
+
+  "Hostname": "unnskyld.dhcp.samfundet.no",
+
+  "Users": [
+    { "Name": "esplie", "Id": "01" },
+    { "Name": "hermansc", "Id": "02" },
+    { "Name": "mg", "Id": "03" }
+  ]
+}

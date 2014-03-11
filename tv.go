@@ -152,7 +152,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
   }
 
   // Show running channel and list of channels.
-  t, err := template.ParseFiles("channels.html")
+  t, err := template.ParseFiles("unistream.html")
   if (err != nil) { fmt.Fprintf(w, "Could not parse template file: " + err.Error()); return }
 
   d := make(map[string]interface{})
@@ -237,7 +237,7 @@ func indexPageHandler(w http.ResponseWriter, r *http.Request) {
 /* END OF OLD IMPLEMENTATION */
 
 func main() {
-    config = loadConfig("channels.json")
+    config = loadConfig("config.json")
     http.HandleFunc("/uni", uniPageHandler)
     http.HandleFunc("/", indexPageHandler)
     http.ListenAndServe(":13000", nil)
