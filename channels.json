@@ -40,6 +40,8 @@
       {"Name" : "Canal9",                "Address": "udp://@239.1.1.49:1234"}
   ],
 
+  "Hostname": "unnskyld.dhcp.samfundet.no",
+
   "Users": [
     { "Name": "esplie", "Id": "01" },
     { "Name": "hermansc", "Id": "02" },

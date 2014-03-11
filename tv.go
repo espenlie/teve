@@ -20,11 +20,6 @@ type Channel struct {
     Views       string
 }
 
-type TemplateData struct {
-    Title       string
-    Channels    []Channel
-}
-
 type User struct {
   Name string
   Id string
@@ -33,7 +28,7 @@ type User struct {
 type Config struct {
   Channels []Channel
   Users []User
-  Domain string
+  Hostname string
 }
 
 type Command struct {
@@ -90,37 +85,6 @@ func killStream(cmd *exec.Cmd) (error) {
     if err := cmd.Process.Kill(); err != nil { return err }
     cmd.Process.Wait()
     return nil
-}
-
-func startStream(channel Channel, port string, user User) *exec.Cmd {
-    cmd := exec.Command("/usr/bin/cvlc", channel.Address,
-            "--sout","#std{access=http,mux=ts,dst=:1200" + user.Id + "/" + user.Name + "}")
-    err := cmd.Start()
-    if err != nil {
-        fmt.Println(err)
-    }
-    return cmd
-}
-
-func choosePort(index int) string {
-    base := 9000+index
-    return strconv.Itoa(base)
-}
-
-func countStream(port string) string{
-    oneliner := exec.Command("bash","-c","netstat | grep :"+port+"| grep ESTABLISHED | wc -l")
-    out, _ := oneliner.Output()
-    streng := strings.TrimSpace(string(out))
-    return streng
-}
-
-func updateRunningStreams() {
-    for index, value := range config.Channels {
-        if _, ok := streams[value.Name]; ok {
-            config.Channels[index].Running = true
-            config.Channels[index].Outgoing = config.Domain+strconv.Itoa(index)
-        }
-    }
 }
 
 func getUser(username string) (User, error) {
@@ -200,16 +164,44 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
   t.Execute(w, d)
 }
 
+/* OLD IMPLEMENTATION */
+func startStream(channel Channel, port string) *exec.Cmd {
+    command := fmt.Sprintf("cvlc %v --sout '#std{access=http,mux=ts,dst=:%v}'", channel.Address, port)
+    cmd := exec.Command("bash", "-c", command)
+    err := cmd.Start()
+    if err != nil { fmt.Println(err) }
+    return cmd
+}
+
+func choosePort(index int) string {
+    base := 9000+index
+    return strconv.Itoa(base)
+}
+
+func countStream(port string) string{
+    oneliner := exec.Command("bash","-c","netstat | grep :"+port+"| grep ESTABLISHED | wc -l")
+    out, _ := oneliner.Output()
+    streng := strings.TrimSpace(string(out))
+    return streng
+}
+
+func updateRunningStreams() {
+    for index, value := range config.Channels {
+        if _, ok := streams[value.Name]; ok {
+            config.Channels[index].Running = true
+            config.Channels[index].Outgoing = choosePort(index)
+        }
+    }
+}
+
 func indexPageHandler(w http.ResponseWriter, r *http.Request) {
-    _ = r.FormValue("user")
-    var current_user User
-
-
+    updateRunningStreams()
     w.Header().Add("Content-Type", "text/html")
     t, err := template.ParseFiles("index.html")
     if err != nil {
         fmt.Println(err)
     }
+
     if r.Method=="POST" {
         startForm := r.FormValue("channel")
         endForm   := r.FormValue("kill")
@@ -217,7 +209,7 @@ func indexPageHandler(w http.ResponseWriter, r *http.Request) {
             newStream,_ := strconv.Atoi(startForm)
             port := choosePort(newStream)
             streams[config.Channels[newStream].Name] = Command{ Name: startForm,
-                  Cmd: startStream(config.Channels[newStream], port, current_user)}
+                  Cmd: startStream(config.Channels[newStream], port)}
             config.Channels[newStream].Running = true
             config.Channels[newStream].Outgoing = port
             config.Channels[newStream].Views = countStream(port)
@@ -236,15 +228,17 @@ func indexPageHandler(w http.ResponseWriter, r *http.Request) {
             config.Channels[i].Views = countStream(key.Outgoing)
         }
     }
-    data := TemplateData{Title: "TELECHUBBY", Channels: config.Channels,}
-    t.Execute(w, data)
+    d := make(map[string]interface{})
+    d["title"] = "TELECHUBBY"
+    d["Channels"] = config.Channels
+    d["Hostname"] = config.Hostname
+    t.Execute(w, d)
 }
+/* END OF OLD IMPLEMENTATION */
 
 func main() {
     config = loadConfig("channels.json")
-    updateRunningStreams()
-    http.HandleFunc("/", indexPageHandler)
     http.HandleFunc("/uni", uniPageHandler)
+    http.HandleFunc("/", indexPageHandler)
     http.ListenAndServe(":13000", nil)
-
 }

@@ -19,11 +19,12 @@
                 <th></th>
                 <th></th>
             </tr>
-            {{range $index, $key := .Channels }}
+            {{$hostname := .Hostname}}
+            {{range $index, $key := .Channels}}
                 <tr>
                     <td>{{ $index }}</td>
                     <td>{{ $key.Name }}</td>
-                {{ if $key.Running }}
+                {{if $key.Running}}
                     <td>
                         <form action="/tv" method="post">
                             <input type="hidden" name="kill" value={{ $index }} /> 
@@ -31,19 +32,18 @@
                         </form>
                     </td>
                     <td>
-                        <a href="http://hoftun.mg.am:{{ $key.Outgoing }}">
+                      <a href="http://{{ $hostname }}:{{ $key.Outgoing }}">
                         Kopier meg, {{ $key.Views }} seer(e)
-                        </a>
+                      </a>
                     </td>
-                {{ end }}
-                {{ if not $key.Running }}
+                {{else}}
                     <td>
                         <form action="/tv" method="post">
                             <input type="hidden" name="channel" value={{ $index }} /> 
                             <button>Start</button>
                         </form>
                     </td>
-                {{ end }}
+                {{end}}
                 </tr>
             {{end}}
             </table>
