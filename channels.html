@@ -1,0 +1,23 @@
+<html>
+  <body>
+  <h3>Hello {{.User}}</h3>
+  <p>You are playing: {{.CurrentChannel}}
+    {{if .Running }}
+      (<a href="/uni?user={{.User}}&kchannel=1">Kill stream</a>)
+      {{if .Transcoding}}
+        (<a href="/uni?user={{.User}}&channel={{.CurrentChannel}}&transcoding=false">Disable transcoding</a>)
+      {{else}}
+        (<a href="/uni?user={{.User}}&channel={{.CurrentChannel}}&transcoding=true">Enable transcoding</a>)
+      {{end}}
+    {{end}}
+  </p>
+  <p>Would you rather play?</p>
+  <ul>
+    {{$user:= .User}}
+    {{$transcoding:= .Transcoding}}
+    {{range .Channels}}
+    <li><a href="/uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}">{{.Name}}</a></li>
+    {{end}}
+  </ul>
+  </body>
+</html>
