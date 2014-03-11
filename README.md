@@ -22,7 +22,7 @@ You need add users and define your *hostname* in the `config.json` file.
 
 Run this command once a day:
 
-`$ ./epg/epgsync epg.db`
+`$ ./epg/epgsync epg/epg.db`
 
 To get started, you may find it simplest to just start a virtualenv:
 
