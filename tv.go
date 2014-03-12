@@ -12,7 +12,7 @@ import (
     "errors"
     "time"
     "database/sql"
-    _ "github.com/mattn/go-sqlite3"
+    _ "github.com/lib/pq"
 )
 
 type Channel struct {
@@ -117,24 +117,22 @@ func getChannel(channel_name string) (Channel, error) {
 }
 
 func getEpgData() {
-  dbh, err := sql.Open("sqlite3", "./epg/epg.db")
+  dbh, err := sql.Open("postgres", "user=epguser dbname=epg sslmode=disable")
   if (err != nil) { fmt.Printf("Problems with EPG db" + err.Error()); return }
   for i, channel := range config.Channels {
     config.Channels[i].EPGlist = []EPG{}
     rows, err := dbh.Query(`SELECT title, start, stop
                             FROM epg
-                            WHERE channel=? 
-                            AND datetime(stop) > datetime('now')
+                            WHERE channel=$1
+                            AND stop > now()
                             LIMIT 3`, channel.Name)
     if (err != nil) { fmt.Printf("Problems with query: " + err.Error()); return }
     for rows.Next() {
-      var title,start,stop string
+      var title string
+      var start,stop time.Time
       _ = rows.Scan(&title,&start,&stop)
-      layout := "2006-01-02T15:04:05-07:00"
-      sta, _ := time.Parse(layout, start)
-      sto, _ := time.Parse(layout, stop)
       out_layout := "15:04"
-      epg := EPG{Title: title, Start: sta.Format(out_layout), Stop: sto.Format(out_layout)}
+      epg := EPG{Title: title, Start: start.Format(out_layout), Stop: stop.Format(out_layout)}
       config.Channels[i].EPGlist = append(config.Channels[i].EPGlist, epg)
     }
   }

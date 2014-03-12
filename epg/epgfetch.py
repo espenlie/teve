@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python
 from lxml import objectify
 import urllib2
 import time
@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import gzip
 import StringIO
 from dateutil import parser
-import sqlite3
+import psycopg2
 import sys
 
 def main():
@@ -33,8 +33,8 @@ def main():
     ]
     base = "http://xmltv.xmltv.se"
     dates = [datetime.today() + timedelta(days=i) for i in range(0,1)] 
-    dbname = "epg.db" if not sys.argv[1] else sys.argv[1]
-    conn = sqlite3.connect(dbname)
+    conn = psycopg2.connect("dbname=epg user=epguser")
+    cur = conn.cursor()
 
     for date in dates:
         for channel in channels:
@@ -47,12 +47,14 @@ def main():
             root = objectify.fromstring(f.read())
             for programme in root["programme"]:
                 d = {}
-                d["start"] = parser.parse(programme.attrib["start"]).isoformat()
-                d["stop"] = parser.parse(programme.attrib["stop"]).isoformat()
-                d["title"] = unicode(programme["title"])
-                d["channel"] = channel["ui"]
-                conn.execute("INSERT INTO epg VALUES(:title,:start,:stop,:channel)", d)
+                start = parser.parse(programme.attrib["start"]).isoformat()
+                stop = parser.parse(programme.attrib["stop"]).isoformat()
+                title = unicode(programme["title"])
+                ch = channel["ui"]
+                cur.execute("INSERT INTO epg(start,stop,title,channel) VALUES(%s,%s,%s,%s)", (start,stop,title,ch))
     conn.commit()
+    cur.close()
+    conn.close()
 
 if __name__ == "__main__":
     main()
