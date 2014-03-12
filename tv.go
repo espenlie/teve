@@ -209,7 +209,9 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 
   // Start the recording and save to disk.
   //command := fmt.Sprintf("ffmpeg -i %v -c copy %v.mkv", url, filename)
-  command := getVLCstr(0, config.Channels[0].Address, filename, "file")
+  ch, err := getChannel(channel)
+  if (err != nil) { fmt.Println(err.Error()); return }
+  command := getVLCstr(0, ch.Address, filename, "file")
   cmd := exec.Command("bash", "-c", command)
   err = cmd.Start()
   if (err != nil) { fmt.Println(err.Error()); return }
