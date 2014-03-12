@@ -116,7 +116,7 @@ func getChannel(channel_name string) (Channel, error) {
   return Channel{}, errors.New("Did not find specified channel name")
 }
 
-func getEpgData() {
+func getEpgData(numEpg int) {
   dbh, err := sql.Open("postgres", "user=epguser dbname=epg sslmode=disable")
   if (err != nil) { fmt.Printf("Problems with EPG db" + err.Error()); return }
   for i, channel := range config.Channels {
@@ -125,7 +125,7 @@ func getEpgData() {
                             FROM epg
                             WHERE channel=$1
                             AND stop > now()
-                            LIMIT 3`, channel.Name)
+                            LIMIT $2`, channel.Name, numEpg)
     if (err != nil) { fmt.Printf("Problems with query: " + err.Error()); return }
     for rows.Next() {
       var title string
@@ -152,8 +152,6 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
     return
   }
 
-  getEpgData()
-
   currentChannel := "-"
 
   transcoding := 0
@@ -175,6 +173,15 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
   if form_refresh == "1" {
     refresh = true
   }
+
+  // Get number of elements to show in the EPG feed
+  numEpg := 3
+  form_epg := r.FormValue("num")
+  if form_epg != "" {
+    numEpg, err = strconv.Atoi(form_epg)
+    if (err != nil) { numEpg = 3 }
+  }
+  getEpgData(numEpg)
 
   index := r.FormValue("channel")
   if index != "" && !refresh {
