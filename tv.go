@@ -51,11 +51,22 @@ type EPG struct {
   Title string
   Start string
   Stop string
+  StartLong string
+  StopLong string
+}
+
+type Recording struct {
+  Id int
+  Channel string
+  Start string
+  Stop string
+  Title string
 }
 
 var config Config
 
-var streams =   make(map[string]Command)
+var streams = make(map[string]Command)
+var recordings = make(map[string][]Recording)
 
 func loadConfig(filename string) Config {
     file, err := ioutil.ReadFile(filename)
@@ -69,10 +80,10 @@ func loadConfig(filename string) Config {
     return config
 }
 
-func startUniStream(channel Channel, user User, transcoding int) (error) {
+func getVLCstr(transcoding int, channel, dst, access string) string {
   transcoding_opts := fmt.Sprintf("#transcode{vcodec=h264,vb=%v,acodec=aac,ab=128}:", transcoding)
-  output := fmt.Sprintf("std{access=http,mux=ts,dst=:140%v/%v}'", user.Id, user.Name)
-  command := fmt.Sprintf("cvlc %v --sout '", channel.Address)
+  output := fmt.Sprintf("std{access=%v,mux=ts,dst=%v}'", access, dst)
+  command := fmt.Sprintf("cvlc %v --sout '", channel)
 
   if transcoding != 0 {
     command += transcoding_opts
@@ -80,6 +91,12 @@ func startUniStream(channel Channel, user User, transcoding int) (error) {
     command += "#"
   }
   command += output
+  return command
+}
+
+func startUniStream(channel Channel, user User, transcoding int) (error) {
+  userSuffix := fmt.Sprintf(":140%v/%v", user.Id, user.Name)
+  command := getVLCstr(transcoding, channel.Address, userSuffix, "http")
   cmd := exec.Command("bash", "-c", command)
   err := cmd.Start()
   if (err != nil) { return err }
@@ -121,7 +138,7 @@ func getChannel(channel_name string) (Channel, error) {
 }
 
 func getEpgData(numEpg int) {
-    dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+  dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
   dbh, err := sql.Open("postgres", dboptions)
   if (err != nil) { fmt.Printf("Problems with EPG db" + err.Error()); return }
   for i, channel := range config.Channels {
@@ -136,11 +153,96 @@ func getEpgData(numEpg int) {
       var title string
       var start,stop time.Time
       _ = rows.Scan(&title,&start,&stop)
-      out_layout := "15:04"
-      epg := EPG{Title: title, Start: start.Format(out_layout), Stop: stop.Format(out_layout)}
+      short_form := "15:04"
+      long_form := "2006-01-02 15:04"
+      epg := EPG{
+        Title: title,
+        Start: start.Format(short_form),
+        Stop: stop.Format(short_form),
+        StartLong: start.Format(long_form),
+        StopLong: stop.Format(long_form),
+      }
       config.Channels[i].EPGlist = append(config.Channels[i].EPGlist, epg)
     }
   }
+}
+
+func startRecording(url, sstart, sstop, username, title, channel string) {
+  // Parse the time.
+  layout := "2006-01-02 15:04"
+  short_layout := "15:04"
+  file_layout := "2006-01-02-15-04"
+  start, err := time.Parse(layout, sstart)
+  stop, err := time.Parse(layout, sstop)
+  if (err != nil) { fmt.Println(err.Error()); return }
+  // Go assumes UTC, and as we are on Go 1.0 and not 1.1 we dont have ParseInLocation.
+  // Thus we just convert now-time to UTC and add an hour.
+  oslo := time.Now().UTC().Add(time.Duration(3600*time.Second))
+
+  secondsInFuture := start.Sub(oslo).Seconds()
+  secondsToEnd := stop.Sub(oslo).Seconds()
+  duration := stop.Sub(start).Seconds()
+  if (duration < 0) {
+    fmt.Println("Failed due to negative duration.")
+    return
+  }
+
+  // Add the recording to the array of recordings for this user.
+  recs := recordings[username]
+  key := len(recs)
+  programme_title := strings.Replace(title, " ", "-", -1)
+  filename := fmt.Sprintf("%v-%v-%v.mkv",start.Format(file_layout), programme_title, username)
+  recs = append(recs, Recording{
+    Id: key,
+    Channel: "-",
+    Start: start.Format(layout),
+    Stop: stop.Format(short_layout),
+    Title: filename,
+  })
+  recordings[username] = recs
+
+  // Wait until programme starts.
+  if !(secondsInFuture < 0 && secondsToEnd > 0) {
+    fmt.Println("In future")
+    time.Sleep(time.Duration(int(secondsInFuture))*time.Second)
+  }
+
+  // Start the recording and save to disk.
+  //command := fmt.Sprintf("ffmpeg -i %v -c copy %v.mkv", url, filename)
+  command := getVLCstr(0, config.Channels[0].Address, filename, "file")
+  cmd := exec.Command("bash", "-c", command)
+  err = cmd.Start()
+  if (err != nil) { fmt.Println(err.Error()); return }
+
+  // Wait until programme stops.
+  time.Sleep(time.Duration(int(duration))*time.Second)
+
+  // Kill the recording.
+  err = killStream(cmd)
+  if (err != nil) { fmt.Println(err.Error()); return }
+
+  // Remove the recording from the user.
+  for i, recording := range recs {
+    if recording.Id == key {
+      recs = append(recs[:i],recs[i+1:]...)
+    }
+  }
+  recordings[username] = recs
+}
+
+func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
+  username := r.FormValue("user")
+  start := r.FormValue("start")
+  stop := r.FormValue("stop")
+  title := r.FormValue("title")
+  channel := r.FormValue("channel")
+  user, _ := getUser(username)
+
+  url := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
+
+  go startRecording(url, start, stop, user.Name, title, channel)
+  base_url := fmt.Sprintf("/uri?user=%v&refresh=1", username)
+  http.Redirect(w, r, base_url, 302)
 }
 
 func uniPageHandler(w http.ResponseWriter, r *http.Request) {
@@ -213,6 +315,8 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, url, 302)
   }
 
+  // Get the recordings for this user.
+  d["Recordings"] = recordings[user.Name]
   d["Channels"] = config.Channels
   d["User"] = user.Name
   d["CurrentChannel"] = currentChannel
@@ -241,6 +345,7 @@ func serveSingle(pattern string, filename string) {
 func main() {
     config = loadConfig("config.json")
     http.HandleFunc("/", uniPageHandler)
+    http.HandleFunc("/record", startRecordingHandler)
 //  http.HandleFunc("/", indexPageHandler)
     serveSingle("/favicon.ico", "./static/favicon.ico")
     http.Handle("/static", http.FileServer(http.Dir("./static/")))

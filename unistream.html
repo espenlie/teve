@@ -30,6 +30,14 @@
         <p>Your URL is: <a href="{{.URL}}"><b><em>{{.URL}}</em></b></a></p>
         <hr>
       {{end}}
+      {{if .Recordings}}
+      <p>Your recordings</p>
+      <ul>
+      {{range .Recordings}}
+        <li><b>{{.Start}}=>{{.Stop}}</b>: {{.Title}}</li>
+      {{end}}
+      </ul>
+      {{end}}
     </p>
     <p>Channel to be broadcasted on your stream:</p>
     <ul>
@@ -39,10 +47,12 @@
       <li>
         <a href="./uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}">{{.Name}}</a>
         <ul>
+          {{$channel := .}}
           {{range $index, $epg := .EPGlist}}
           <li>
           {{if not $index}}<b>{{end}}
-              {{.Start}} => {{$epg.Stop}}: {{$epg.Title}}</li>
+            (<a href="/record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}">Record</a>) 
+              {{.Start}} => {{.Stop}}: {{.Title}}</li>
           {{ if not $index}}</b>{{end}}
           {{end}}
         </ul>
