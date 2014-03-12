@@ -81,7 +81,7 @@ func loadConfig(filename string) Config {
 }
 
 func getVLCstr(transcoding int, channel, dst, access string) string {
-  transcoding_opts := fmt.Sprintf("#transcode{vcodec=h264,vb=%v,acodec=aac,ab=128}:", transcoding)
+  transcoding_opts := fmt.Sprintf("#transcode{vcodec=mp2v,vb=%v,acodec=aac,ab=128,scale=0.7,threads=2}:", transcoding)
   output := fmt.Sprintf("std{access=%v,mux=ts,dst=%v}'", access, dst)
   command := fmt.Sprintf("cvlc %v --sout '", channel)
 
@@ -317,6 +317,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 
   // Get the recordings for this user.
   d["Recordings"] = recordings[user.Name]
+  d["Viewers"] = countStream()
   d["Channels"] = config.Channels
   d["User"] = user.Name
   d["CurrentChannel"] = currentChannel
@@ -328,8 +329,8 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 
 /* OLD IMPLEMENTATION */
 // We could edit this to count all outgoing streams
-func countStream(port string) string{
-    oneliner := exec.Command("bash","-c","netstat | grep :"+port+"| grep ESTABLISHED | wc -l")
+func countStream() string{
+    oneliner := exec.Command("bash","-c","netstat | grep :"+config.StreamingPort+"| grep ESTABLISHED | wc -l")
     out, _ := oneliner.Output()
     streng := strings.TrimSpace(string(out))
     return streng
@@ -346,7 +347,6 @@ func main() {
     config = loadConfig("config.json")
     http.HandleFunc("/", uniPageHandler)
     http.HandleFunc("/record", startRecordingHandler)
-//  http.HandleFunc("/", indexPageHandler)
     serveSingle("/favicon.ico", "./static/favicon.ico")
     http.Handle("/static", http.FileServer(http.Dir("./static/")))
     http.ListenAndServe(":"+config.WebPort, nil)
