@@ -35,6 +35,7 @@ type Config struct {
   Hostname string
   StreamingPort string
   WebPort string
+  RecordingsFolder string
   DBHost string
   DBName string
   DBUser string
@@ -191,19 +192,18 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
   recs := recordings[username]
   key := len(recs)
   programme_title := strings.Replace(title, " ", "-", -1)
-  filename := fmt.Sprintf("%v-%v-%v.mkv",start.Format(file_layout), programme_title, username)
+  filename := fmt.Sprintf("%v/%v-%v-%v.mkv", config.RecordingsFolder, start.Format(file_layout), programme_title, username)
   recs = append(recs, Recording{
     Id: key,
     Channel: "-",
     Start: start.Format(layout),
     Stop: stop.Format(short_layout),
-    Title: filename,
+    Title: programme_title,
   })
   recordings[username] = recs
 
-  // Wait until programme starts.
   if !(secondsInFuture < 0 && secondsToEnd > 0) {
-    fmt.Println("In future")
+    // Wait until programme starts.
     time.Sleep(time.Duration(int(secondsInFuture))*time.Second)
   }
 

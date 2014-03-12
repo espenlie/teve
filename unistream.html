@@ -53,7 +53,7 @@
           {{range $index, $epg := .EPGlist}}
           <li>
           {{if not $index}}<b>{{end}}
-            (<a href="/record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}">Record</a>) 
+            (<a href="/record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}">R</a>) 
               {{.Start}} => {{.Stop}}: {{.Title}}</li>
           {{ if not $index}}</b>{{end}}
           {{end}}

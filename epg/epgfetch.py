@@ -33,7 +33,7 @@ def main():
     ]
     base = "http://xmltv.xmltv.se"
     dates = [datetime.today() + timedelta(days=i) for i in range(0,1)] 
-    conn = psycopg2.connect("host=localhost dbname=epg user=epguser password=epg123")
+    conn = psycopg2.connect("host=localhost dbname=epg user=epguser password=pass")
     cur = conn.cursor()
 
     for date in dates:

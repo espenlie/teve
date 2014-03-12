@@ -33,6 +33,8 @@
     { "Name": "user3", "Id": "03" }
   ],
 
+  "RecordingsFolder": "recordings",
+
   "DBHost" : "lokalhark",
   "DBName" : "dbname",
   "DBUser" : "dbuser",
