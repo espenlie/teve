@@ -18,11 +18,18 @@ Then
 
 You need add users and define your *hostname* in the `config.json` file.
 
+You also need a Postgresql DB called `epg` and a postgresql user called
+`epguser`.
+These are simply created by:
+
+    $ createdb epg
+    $ createuser epguser
+
 ### Update EPG-data
 
 Run this command once a day:
 
-`$ ./epg/epgsync epg/epg.db`
+`$ ./epg/epgsync`
 
 To get started, you may find it simplest to just start a virtualenv:
 
@@ -36,8 +43,12 @@ Python:
 
 - lxml
 - python-dateutil
-- sqlite3
+- psycopg2
 
 Golang:
 
-- [sqlite3](github.com/mattn/go-sqlite3)
+- [pq](http://godoc.org/github.com/lib/pq)
+
+Unix:
+
+- PostgreSQL (`apt-get install postgresql`)
