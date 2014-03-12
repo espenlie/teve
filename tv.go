@@ -35,6 +35,10 @@ type Config struct {
   Hostname string
   StreamingPort string
   WebPort string
+  DBHost string
+  DBName string
+  DBUser string
+  DBPass string
 }
 
 type Command struct {
@@ -117,7 +121,8 @@ func getChannel(channel_name string) (Channel, error) {
 }
 
 func getEpgData(numEpg int) {
-  dbh, err := sql.Open("postgres", "user=epguser dbname=epg sslmode=disable")
+    dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+  dbh, err := sql.Open("postgres", dboptions)
   if (err != nil) { fmt.Printf("Problems with EPG db" + err.Error()); return }
   for i, channel := range config.Channels {
     config.Channels[i].EPGlist = []EPG{}
@@ -204,7 +209,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
   if kill_index != "" {
     err := killUniStream(user)
     if (err != nil) { fmt.Fprintf(w, "Could not kill stream: " + err.Error()); return }
-    url := fmt.Sprintf("/uni?user=%v", user.Name)
+    url := fmt.Sprintf("/tv/uni?user=%v", user.Name)
     http.Redirect(w, r, url, 302)
   }
 

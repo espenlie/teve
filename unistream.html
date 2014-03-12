@@ -2,14 +2,14 @@
   <head>
     <title>{{.User}} :: {{ .CurrentChannel }} :: teve</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-    <meta http-equiv="refresh" content="60; url=/uni?user={{.User}}&refresh=1">
+    <meta http-equiv="refresh" content="60; url=./uni?user={{.User}}&refresh=1">
   </head>
   <body>
   {{if .Users}}
     <p><b>No user selected.</b> Please choose below:</p>
     <ul>
     {{range .Users}}
-      <li><a href="/uni?user={{.Name}}">{{.Name}}</a><br /></li>
+      <li><a href="./uni?user={{.Name}}">{{.Name}}</a><br /></li>
     {{end}}
     </ul>
   {{else}}
@@ -17,8 +17,8 @@
     <hr>
     <p>You are playing: <b>{{.CurrentChannel}}</b>
       {{if .Running }}
-        (<a href="/uni?user={{.User}}&kchannel=1">Kill stream</a>)
-        <form action="/uni" method="get">
+        (<a href="./uni?user={{.User}}&kchannel=1">Kill stream</a>)
+        <form action="./uni" method="get">
           <b>Set transcoding: </b>
           <input type="hidden" name="user" value="{{.User}}">
           <input type="hidden" name="channel" value="{{.CurrentChannel}}">
@@ -37,7 +37,7 @@
       {{$transcoding := .Transcoding}}
       {{range .Channels}}
       <li>
-        <a href="/uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}">{{.Name}}</a>
+        <a href="./uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}">{{.Name}}</a>
         <ul>
           {{range $index, $epg := .EPGlist}}
           <li>

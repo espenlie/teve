@@ -31,5 +31,10 @@
     { "Name": "esplie", "Id": "01" },
     { "Name": "hermansc", "Id": "02" },
     { "Name": "mg", "Id": "03" }
-  ]
+  ],
+
+  "DBHost" : "localhost",
+  "DBName" : "epg",
+  "DBUser" : "epguser",
+  "DBPass" : "epg123"
 }
