@@ -21,7 +21,7 @@
       {"Name" : "CNN International",     "Address": "udp://@239.1.1.28:1234"}
   ],
 
-  "Hostname": "nei.dhcp.samfundet.no",
+  "Hostname": "hoftun.mg.am",
 
   "StreamingPort": "140",
 

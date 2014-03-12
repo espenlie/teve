@@ -223,74 +223,12 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 /* OLD IMPLEMENTATION */
-func startStream(channel Channel, port string) *exec.Cmd {
-    command := fmt.Sprintf("cvlc %v --sout '#std{access=http,mux=ts,dst=:%v}'", channel.Address, port)
-    cmd := exec.Command("bash", "-c", command)
-    err := cmd.Start()
-    if err != nil { fmt.Println(err) }
-    return cmd
-}
-
-func choosePort(index int) string {
-    base := 9000+index
-    return strconv.Itoa(base)
-}
-
+// We could edit this to count all outgoing streams
 func countStream(port string) string{
     oneliner := exec.Command("bash","-c","netstat | grep :"+port+"| grep ESTABLISHED | wc -l")
     out, _ := oneliner.Output()
     streng := strings.TrimSpace(string(out))
     return streng
-}
-
-func updateRunningStreams() {
-    for index, value := range config.Channels {
-        if _, ok := streams[value.Name]; ok {
-            config.Channels[index].Running = true
-            config.Channels[index].Outgoing = choosePort(index)
-        }
-    }
-}
-
-func indexPageHandler(w http.ResponseWriter, r *http.Request) {
-    updateRunningStreams()
-    w.Header().Add("Content-Type", "text/html")
-    t, err := template.ParseFiles("index.html")
-    if err != nil {
-        fmt.Println(err)
-    }
-
-    if r.Method=="POST" {
-        startForm := r.FormValue("channel")
-        endForm   := r.FormValue("kill")
-        if startForm != "" {
-            newStream,_ := strconv.Atoi(startForm)
-            port := choosePort(newStream)
-            streams[config.Channels[newStream].Name] = Command{ Name: startForm,
-                  Cmd: startStream(config.Channels[newStream], port)}
-            config.Channels[newStream].Running = true
-            config.Channels[newStream].Outgoing = port
-            config.Channels[newStream].Views = countStream(port)
-        }
-        if endForm != "" {
-            stopStream, _ := strconv.Atoi(endForm)
-            if _,ok := streams[config.Channels[stopStream].Name]; ok {
-                killStream(streams[config.Channels[stopStream].Name].Cmd)
-                config.Channels[stopStream].Running = false
-            }
-        }
-        http.Redirect(w, r, "/tv", 302)
-    }
-    for i, key := range config.Channels {
-        if key.Outgoing != "" {
-            config.Channels[i].Views = countStream(key.Outgoing)
-        }
-    }
-    d := make(map[string]interface{})
-    d["title"] = "TELECHUBBY"
-    d["Channels"] = config.Channels
-    d["Hostname"] = config.Hostname
-    t.Execute(w, d)
 }
 /* END OF OLD IMPLEMENTATION */
 
@@ -302,8 +240,8 @@ func serveSingle(pattern string, filename string) {
 
 func main() {
     config = loadConfig("config.json")
-    http.HandleFunc("/uni", uniPageHandler)
-    http.HandleFunc("/", indexPageHandler)
+    http.HandleFunc("/", uniPageHandler)
+//  http.HandleFunc("/", indexPageHandler)
     serveSingle("/favicon.ico", "./static/favicon.ico")
     http.Handle("/static", http.FileServer(http.Dir("./static/")))
     http.ListenAndServe(":"+config.WebPort, nil)
