@@ -3,3 +3,4 @@ venv/
 *.db
 config.json
 teve
+recordings/

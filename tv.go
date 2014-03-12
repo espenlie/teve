@@ -318,6 +318,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 
   // Get the recordings for this user.
   d["Recordings"] = recordings[user.Name]
+  d["RecordingsFolder"] = config.RecordingsFolder
   d["Viewers"] = countStream()
   d["Channels"] = config.Channels
   d["User"] = user.Name
@@ -350,5 +351,6 @@ func main() {
     http.HandleFunc("/record", startRecordingHandler)
     serveSingle("/favicon.ico", "./static/favicon.ico")
     http.Handle("/static", http.FileServer(http.Dir("./static/")))
+    http.Handle("/"+config.RecordingsFolder+"/", http.FileServer(http.Dir("")))
     http.ListenAndServe(":"+config.WebPort, nil)
 }

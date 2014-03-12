@@ -16,6 +16,7 @@
     <h3>Hello {{.User}}</h3>
     <hr>
     <p>There are currently <b>{{.Viewers}}</b> active viewer(s).</p>
+    <p>Old recordings are available <a href="./{{.RecordingsFolder}}">here.</a>
     <hr>
     <p>You are playing: <b>{{.CurrentChannel}}</b>
       {{if .Running }}
