@@ -1,7 +1,8 @@
 <html>
   <head>
-  <title>{{.User}} :: {{ .CurrentChannel }} :: teve</title>
+    <title>{{.User}} :: {{ .CurrentChannel }} :: teve</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <meta http-equiv="refresh" content="60; url=/uni?user={{.User}}&refresh=1">
   </head>
   <body>
   {{if .Users}}

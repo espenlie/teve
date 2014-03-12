@@ -168,8 +168,16 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
     if (err != nil) { transcoding = 0 }
   }
 
+  // Check if we actually want to kill and start a new stream, or just want to
+  // refresh.
+  refresh := false
+  form_refresh := r.FormValue("refresh")
+  if form_refresh == "1" {
+    refresh = true
+  }
+
   index := r.FormValue("channel")
-  if index != "" {
+  if index != "" && !refresh {
     // Change the current channel
     // First, get channel.
     channel, err := getChannel(index)
