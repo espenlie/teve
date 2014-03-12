@@ -182,8 +182,7 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 
   secondsInFuture := start.Sub(oslo).Seconds()
   secondsToEnd := stop.Sub(oslo).Seconds()
-  duration := stop.Sub(start).Seconds()
-  if (duration < 0) {
+  if (secondsToEnd < 0) {
     fmt.Println("Failed due to negative duration.")
     return
   }
@@ -217,7 +216,9 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
   if (err != nil) { fmt.Println(err.Error()); return }
 
   // Wait until programme stops.
-  time.Sleep(time.Duration(int(duration))*time.Second)
+  fmt.Printf("Waiting %v seconds to kill.\n", int(secondsToEnd))
+  time.Sleep(time.Duration(int(secondsToEnd))*time.Second)
+  fmt.Printf("Killing...\n")
 
   // Kill the recording.
   err = killStream(cmd)
