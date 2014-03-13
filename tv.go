@@ -320,7 +320,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
   if kill_index != "" {
     err := killUniStream(user)
     if (err != nil) { fmt.Fprintf(w, "Could not kill stream: " + err.Error()); return }
-    url := fmt.Sprintf("/tv/uni?user=%v", user.Name)
+    url := fmt.Sprintf("./uni?user=%v", user.Name)
     http.Redirect(w, r, url, 302)
   }
 
