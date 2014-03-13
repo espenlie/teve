@@ -6,6 +6,7 @@ CREATE TABLE epg (
   channel varchar(30)
 );
 CREATE TABLE IF NOT EXISTS recordings (
+  id serial primary key,
   url text,
   start timestamp,
   stop timestamp,
@@ -15,3 +16,4 @@ CREATE TABLE IF NOT EXISTS recordings (
 );
 GRANT ALL ON epg TO epguser;
 GRANT ALL ON recordings TO epguser;
+GRANT ALL ON recordings_id_seq TO epguser;

@@ -97,7 +97,19 @@ func loadPlannedRecordings() {
 	}
 	long_form := "2006-01-02 15:04"
 
-	rows, err := dbh.Query("SELECT url,start,stop,username,title,channel FROM recordings WHERE stop > now()")
+	// First delete those that have finished since last time.
+	rows, err := dbh.Query("SELECT id FROM recordings WHERE stop < now()")
+	if err != nil {
+		fmt.Printf("Query failed: %v\n", err.Error())
+		return
+	}
+	for rows.Next() {
+		var id int64
+		_ = rows.Scan(&id)
+		removeRecording(id)
+	}
+
+	rows, err = dbh.Query("SELECT url,start,stop,username,title,channel FROM recordings")
 	if err != nil {
 		fmt.Printf("Query failed: %v\n", err.Error())
 		return
@@ -110,31 +122,31 @@ func loadPlannedRecordings() {
 	}
 }
 
-func insertRecording(url, username, title, channel string, start, stop time.Time) {
+func insertRecording(url, username, title, channel string, start, stop time.Time) (int64, error) {
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
 	if err != nil {
-		fmt.Printf("Problems with EPG db: %v\n", err.Error())
-		return
+		return -1, err
 	}
 	tx, _ := dbh.Begin()
-	var t string
-	err = tx.QueryRow("SELECT title FROM recordings WHERE username = $1 AND title = $2", username, title).Scan(&t)
+	var id int64
+	err = tx.QueryRow("SELECT id FROM recordings WHERE username = $1 AND title = $2", username, title).Scan(&id)
 	if err == sql.ErrNoRows {
 		// Great the recording does not exist in the DB yet, lets insert it.
-		_, err = tx.Exec("INSERT INTO recordings(url,start,stop,username,title,channel) VALUES ($1,$2,$3,$4,$5,$6)",
+		res, err := tx.Exec("INSERT INTO recordings(url,start,stop,username,title,channel) VALUES ($1,$2,$3,$4,$5,$6)",
 			url, start, stop, username, title, channel)
 		if err != nil {
-			fmt.Printf("Could not insert: %v\n", err.Error())
-			return
+			return -1, err
 		}
+		id, _ = res.LastInsertId()
 		_ = tx.Commit()
 	} else if err != nil {
-		fmt.Printf("Hmm, problems with recordings DB? %v\n", err.Error())
+		return -1, err
 	}
+	return id, nil
 }
 
-func removeRecording(username, title string) {
+func removeRecording(id int64) {
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
 	if err != nil {
@@ -142,7 +154,7 @@ func removeRecording(username, title string) {
 		return
 	}
 	tx, _ := dbh.Begin()
-	_, err = tx.Exec("REMOVE FROM recordings WHERE username = $1 AND title = $2", username, title)
+	_, err = tx.Exec("REMOVE FROM recordings WHERE id = $1", id)
 	if err != nil {
 		fmt.Printf("Could not remove: %v\n", err.Error())
 		return
@@ -273,7 +285,7 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 	recs := recordings[username]
 	key := len(recs)
 	programme_title := strings.Replace(title, " ", "-", -1)
-	filename := fmt.Sprintf("%v/%v-%v-%v.mkv", config.RecordingsFolder, start.Format(file_layout), programme_title, username)
+	filename := fmt.Sprintf("%v/%v-%v-%v.mkv", config.RecordingsFolder, time.Now().Format(file_layout), programme_title, username)
 	recs = append(recs, Recording{
 		Id:      key,
 		Channel: "-",
@@ -282,7 +294,11 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 		Title:   programme_title,
 	})
 	recordings[username] = recs
-	insertRecording(url, username, title, channel, start, stop)
+	id, err := insertRecording(url, username, title, channel, start, stop)
+	if err != nil {
+		fmt.Printf("Could not insert: %v\n", err.Error())
+		return
+	}
 
 	if !(secondsInFuture < 0 && secondsToEnd > 0) {
 		// Wait until programme starts.
@@ -313,7 +329,7 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 		fmt.Println(err.Error())
 		return
 	}
-	removeRecording(username, title)
+	removeRecording(id)
 
 	// Remove the recording from the user.
 	for i, recording := range recs {
