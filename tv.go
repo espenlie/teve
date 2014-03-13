@@ -28,6 +28,7 @@ type File struct {
 	Name string
 	Size int64
 	Url  string
+	SUrl string
 }
 
 type User struct {
@@ -39,6 +40,8 @@ type Config struct {
 	Channels         []Channel
 	Users            []User
 	Hostname         string
+	HttpUser		 string
+	HttpPass		 string
 	BaseUrl          string
 	StreamingPort    string
 	WebPort          string
@@ -378,8 +381,9 @@ func archivePageHandler(w http.ResponseWriter, r *http.Request) {
 	fs := make([]File, 0)
 	baseurl := fmt.Sprintf("http://%v%vvlc?url=", config.Hostname, config.BaseUrl)
 	for _, file := range recordings {
-		fileurl := fmt.Sprintf("%vhttp://teve:s3s4m@%v%vrecordings/%v", baseurl, config.Hostname, config.BaseUrl, file.Name())
-		fs = append(fs, File{Name: file.Name(), Size: (file.Size() / 1000000), Url: fileurl})
+		fileurl := fmt.Sprintf("%vhttp://%v:%v@%v%vrecordings/%v", baseurl, config.HttpUser, config.HttpPass, config.Hostname, config.BaseUrl, file.Name())
+		streamurl := fmt.Sprintf("http://%v%vrecordings/%v", config.Hostname,config.BaseUrl, file.Name())
+		fs = append(fs, File{Name: file.Name(), Size: (file.Size() / 1000000), Url: fileurl, SUrl: streamurl})
 	}
 	d["Files"] = fs
 	d["BaseUrl"] = config.BaseUrl
