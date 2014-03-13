@@ -24,6 +24,12 @@ type Channel struct {
 	EPGlist  []EPG
 }
 
+type File struct {
+	Name string
+	Size int64
+	Url string
+}
+
 type User struct {
 	Name string
 	Id   string
@@ -33,6 +39,7 @@ type Config struct {
 	Channels         []Channel
 	Users            []User
 	Hostname         string
+	BaseUrl			 string
 	StreamingPort    string
 	WebPort          string
 	RecordingsFolder string
@@ -332,6 +339,7 @@ func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, base_url, 302)
 }
 
+
 func startVlcHandler(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("vlc.html")
 	if err != nil {
@@ -340,6 +348,22 @@ func startVlcHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	d := make(map[string]interface{})
 	d["Url"] = r.FormValue("url")
+	t.Execute(w, d)
+}
+
+func archivePageHandler(w http.ResponseWriter, r *http.Request) {
+    t, err := template.ParseFiles("archive.html")
+    if (err != nil) { fmt.Fprintf(w, "Could not parse template file: " + err.Error()); return }
+    d := make(map[string]interface{})
+	recordings, err := ioutil.ReadDir(config.RecordingsFolder)
+	fs := make([]File,0)
+	baseurl := fmt.Sprintf("http://%v/tv/vlc?url=", config.Hostname)
+	for _ , file  := range recordings {
+		fileurl := fmt.Sprintf("%vhttp://teve:s3s4m@%v/tv/recordings/%v", baseurl, config.Hostname, file.Name())
+		fs = append(fs, File{Name:file.Name(), Size:(file.Size()/1000000), Url:fileurl})
+	}
+	d["Files"] = fs
+    if (err != nil) { fmt.Fprintf(w, "Could not list archive: " + err.Error()); return }
 	t.Execute(w, d)
 }
 
@@ -449,16 +473,12 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	t.Execute(w, d)
 }
 
-/* OLD IMPLEMENTATION */
-// We could edit this to count all outgoing streams
 func countStream() string {
 	oneliner := exec.Command("bash", "-c", "netstat | grep :"+config.StreamingPort+"| grep ESTABLISHED | wc -l")
 	out, _ := oneliner.Output()
 	streng := strings.TrimSpace(string(out))
 	return streng
 }
-
-/* END OF OLD IMPLEMENTATION */
 
 func serveSingle(pattern string, filename string) {
 	http.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
@@ -475,6 +495,7 @@ func main() {
 	http.HandleFunc("/", uniPageHandler)
 	http.HandleFunc("/record", startRecordingHandler)
 	http.HandleFunc("/vlc", startVlcHandler)
+	http.HandleFunc("/archive/", archivePageHandler)
 	serveSingle("/favicon.ico", "./static/favicon.ico")
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 	http.Handle("/"+config.RecordingsFolder+"/", http.FileServer(http.Dir("")))

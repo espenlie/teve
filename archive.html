@@ -1,0 +1,38 @@
+<html>
+<head>
+<style>
+body {
+  margin:50px 0px; padding:0px; /* Need to set body margin and padding to get consistency between browsers. */
+  text-align:center; /* Hack for IE5/Win */
+  background-color:#ddd;
+}
+#content {
+  width:640px;
+  margin:0px auto; /* Right and left margin widths set to "auto" */
+  text-align:lefteft; /* Counteract to IE5/Win Hack */
+  padding:15px;
+  padding-top:5px;
+  background-color: rgb(66, 184, 221); /* this is a light blue */
+  border-radius: 4px;
+  border: 1px solid black;
+}
+</style>
+</head>
+<body>
+<div id="content">
+<h2>Archive</h2>
+  {{if .Files}}
+    <table>
+        <th>Record</th>
+        <th>Size</th>
+    {{range .Files}}
+        <tr>
+            <td><a href="{{.Url}}">{{.Name}}</a><td>
+            <td>{{.Size}}MB<td>
+        </tr>
+    {{end}}
+    </ul>
+  {{else}}{{end}}
+</div>
+</body>
+</html>
