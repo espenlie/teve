@@ -90,7 +90,7 @@ func loadPlannedRecordings() {
 	}
 	long_form := "2006-01-02 15:04"
 
-	rows, err := dbh.Query("SELECT url,start,stop,username,title,channel FROM recordings")
+	rows, err := dbh.Query("SELECT url,start,stop,username,title,channel FROM recordings WHERE stop > now()")
 	if err != nil {
 		fmt.Printf("Query failed: %v\n", err.Error())
 		return
@@ -111,13 +111,20 @@ func insertRecording(url, username, title, channel string, start, stop time.Time
 		return
 	}
 	tx, _ := dbh.Begin()
-	_, err = tx.Exec("INSERT INTO recordings(url,start,stop,username,title,channel) VALUES ($1,$2,$3,$4,$5,$6)",
-		url, start, stop, username, title, channel)
-	if err != nil {
-		fmt.Printf("Could not insert: %v\n", err.Error())
-		return
+	var t string
+	err = tx.QueryRow("SELECT title FROM recordings WHERE username = $1 AND title = $2", username, title).Scan(&t)
+	if err == sql.ErrNoRows {
+		// Great the recording does not exist in the DB yet, lets insert it.
+		_, err = tx.Exec("INSERT INTO recordings(url,start,stop,username,title,channel) VALUES ($1,$2,$3,$4,$5,$6)",
+			url, start, stop, username, title, channel)
+		if err != nil {
+			fmt.Printf("Could not insert: %v\n", err.Error())
+			return
+		}
+		_ = tx.Commit()
+	} else if err != nil {
+		fmt.Printf("Hmm, problems with recordings DB? %v\n", err.Error())
 	}
-	_ = tx.Commit()
 }
 
 func removeRecording(username, title string) {
