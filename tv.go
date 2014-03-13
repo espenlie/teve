@@ -246,6 +246,14 @@ func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
   http.Redirect(w, r, base_url, 302)
 }
 
+func startVlcHandler(w http.ResponseWriter, r *http.Request) {
+  t, err := template.ParseFiles("vlc.html")
+  if (err != nil) { fmt.Fprintf(w, "Could not parse template file: " + err.Error()); return }
+  d := make(map[string]interface{})
+  d["Url"] = r.FormValue("url")
+  t.Execute(w, d)
+}
+
 func uniPageHandler(w http.ResponseWriter, r *http.Request) {
   // Show running channel and list of channels.
   d := make(map[string]interface{})
@@ -349,6 +357,7 @@ func main() {
     config = loadConfig("config.json")
     http.HandleFunc("/", uniPageHandler)
     http.HandleFunc("/record", startRecordingHandler)
+    http.HandleFunc("/vlc", startVlcHandler)
     serveSingle("/favicon.ico", "./static/favicon.ico")
     http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
     http.Handle("/"+config.RecordingsFolder+"/", http.FileServer(http.Dir("")))

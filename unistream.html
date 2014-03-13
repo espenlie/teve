@@ -46,9 +46,11 @@
             </div>
           </fieldset>
         </form>
-        <div class="bs-callout bs-callout-info">
-        <h4>Remember!</h4>
+        <div class="bs-callout bs-callout-danger">
+        <h4>Play in VLC?</h4>
         <p>Your URL is: <a href="{{.URL}}"><em>{{.URL}}</em></a></p>
+        <p><a href="./vlc?url={{.URL}}" target="_blank">Click here</a> to play in your browser (requires <a href="http://www.videolan.org/vlc/#download">VLC-plugin</a> and opens new tab/window)</p>
+        </p>
         </div>
       {{end}}
       {{if .Recordings}}
