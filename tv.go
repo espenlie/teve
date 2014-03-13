@@ -81,6 +81,43 @@ func loadConfig(filename string) Config {
     return config
 }
 
+func loadPlannedRecordings() {
+  dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+  dbh, err := sql.Open("postgres", dboptions)
+  if (err != nil) { fmt.Printf("Problems with recording db: %v\n", err.Error()); return }
+  long_form := "2006-01-02 15:04"
+
+  rows, err := dbh.Query("SELECT url,start,stop,username,title,channel FROM recordings")
+  if (err != nil) { fmt.Printf("Query failed: %v\n", err.Error()); return }
+  for rows.Next() {
+    var url,username,title,channel string
+    var start,stop time.Time
+    rows.Scan(&url,&start,&stop,&username,&title,&channel)
+    go startRecording(url,start.Format(long_form),stop.Format(long_form),username,title,channel)
+  }
+}
+
+func insertRecording(url,username,title,channel string, start,stop time.Time) {
+  dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+  dbh, err := sql.Open("postgres", dboptions)
+  if (err != nil) { fmt.Printf("Problems with EPG db: %v\n", err.Error()); return }
+  tx, _ := dbh.Begin()
+  _, err = tx.Exec("INSERT INTO recordings(url,start,stop,username,title,channel) VALUES ($1,$2,$3,$4,$5,$6)",
+               url, start, stop, username, title, channel)
+  if (err != nil) { fmt.Printf("Could not insert: %v\n", err.Error()); return }
+  _ = tx.Commit()
+}
+
+func removeRecording(username,title string) {
+  dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+  dbh, err := sql.Open("postgres", dboptions)
+  if (err != nil) { fmt.Printf("Problems with EPG db: %v\n", err.Error()); return }
+  tx, _ := dbh.Begin()
+  _, err = tx.Exec("REMOVE FROM recordings WHERE username = $1 AND title = $2", username, title)
+  if (err != nil) { fmt.Printf("Could not remove: %v\n", err.Error()); return }
+  _ = tx.Commit()
+}
+
 func getVLCstr(transcoding int, channel, dst, access string) string {
   transcoding_opts := fmt.Sprintf("#transcode{vcodec=mp2v,vb=%v,acodec=aac,ab=128,scale=0.7,threads=2}:", transcoding)
   output := fmt.Sprintf("std{access=%v,mux=ts,dst=%v}'", access, dst)
@@ -200,6 +237,7 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
     Title: programme_title,
   })
   recordings[username] = recs
+  insertRecording(url, username, title, channel,start, stop)
 
   if !(secondsInFuture < 0 && secondsToEnd > 0) {
     // Wait until programme starts.
@@ -221,6 +259,7 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
   // Kill the recording.
   err = killStream(cmd)
   if (err != nil) { fmt.Println(err.Error()); return }
+  removeRecording(username, title)
 
   // Remove the recording from the user.
   for i, recording := range recs {
@@ -355,6 +394,10 @@ func serveSingle(pattern string, filename string) {
 
 func main() {
     config = loadConfig("config.json")
+
+    // The server has (re)started, so we load in the planned recordings.
+    loadPlannedRecordings()
+
     http.HandleFunc("/", uniPageHandler)
     http.HandleFunc("/record", startRecordingHandler)
     http.HandleFunc("/vlc", startVlcHandler)
