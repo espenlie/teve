@@ -4,24 +4,25 @@
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
     <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.4.2/pure-min.css">
     <link rel="stylesheet" href="./static/styles.css">
-    <meta http-equiv="refresh" content="60; url=./uni?user={{.User}}&refresh=1">
+    <meta http-equiv="refresh" content="60; url={{.BaseUrl}}uni?user={{.User}}&refresh=1">
     <meta name="viewport" content="width=device-width, user-scalable=no">
   </head>
   <body>
+  {{$base := .BaseUrl}}
   {{if .Users}}
     <p><b>No user selected.</b> Please choose below:</p>
     <ul>
     {{range .Users}}
-      <li><a href="./uni?user={{.Name}}">{{.Name}}</a><br /></li>
+      <li><a href="{{$base}}uni?user={{.Name}}">{{.Name}}</a><br /></li>
     {{end}}
     </ul>
   {{else}}
   <div class="home-menu pure-menu pure-menu-open pure-menu-fixed pure-menu-horizontal">
-    <a class="pure-menu-heading" href="./uni?user={{.User}}&refresh=1">teve</a>
+    <a class="pure-menu-heading" href="{{$base}}uni?user={{.User}}&refresh=1">teve</a>
     <ul>
       {{if .Running}}
       <li><span>Playing <b>{{.CurrentChannel}}</b></span></li>
-      <li><a href="./uni?user={{.User}}&kchannel=1" class="pure-button button-red">Kill</a></li>
+      <li><a href="{{$base}}uni?user={{.User}}&kchannel=1" class="pure-button button-red">Kill</a></li>
       <li><a href="#" class="pure-button button-lblue">{{.Viewers}} viewers</a></li>
       {{end}}
       <li><a class="pure-button button-green" href="./archive">Go to archive</a></li>
@@ -31,7 +32,7 @@
   <div class="clear"></div>
   <div class="content">
       {{if .Running }}
-        <form action="./uni" method="get" class="pure-form">
+        <form action="{{$base}}uni" method="get" class="pure-form">
           <fieldset>
             <legend>Set transcoding in <b>kbit/s</b>. Transcoded with <b>mp2v</b> and scaled <b>0.7</b></legend>
             <div class="pure-g">
@@ -49,7 +50,7 @@
         <div class="bs-callout bs-callout-danger">
         <h4>Play in VLC?</h4>
         <p>Your URL is: <a href="{{.URL}}"><em>{{.URL}}</em></a></p>
-        <p><a href="./vlc?url={{.URL}}" target="_blank">Click here</a> to play in your browser (requires <a href="http://www.videolan.org/vlc/#download">VLC-plugin</a> and opens new tab/window)</p>
+        <p><a href="{{$base}}vlc?url={{.URL}}" target="_blank">Click here</a> to play in your browser (requires <a href="http://www.videolan.org/vlc/#download">VLC-plugin</a> and opens new tab/window)</p>
         </p>
         </div>
       {{end}}
@@ -67,8 +68,8 @@
       {{$transcoding := .Transcoding}}
       {{range .Channels}}
         <div class="channel">
-          <a href="./uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}"><b>{{.Name}}</b></a>
-          <a href="./uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Play</a>
+          <a href="{{$base}}uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}"><b>{{.Name}}</b></a>
+          <a href="{{$base}}uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Play</a>
         </div>
         {{if not .EPGlist}}
         <p>No EPG data found.</p>
@@ -78,7 +79,7 @@
             {{range $index, $epg := .EPGlist}}
             <tr class="{{if not $index}}header{{end}}">
               <td>
-                <a href="/record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}">R</a>
+                <a href="{{$base}}record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}">R</a>
               </td>
               <td>{{.Start}}</td>
               <td>{{.Stop}}</td>

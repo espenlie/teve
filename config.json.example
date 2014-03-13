@@ -22,6 +22,7 @@
   ],
 
   "Hostname": "mycomputer.sexy",
+  "BaseUrl" : "/",
 
   "StreamingPort": "6969",
 

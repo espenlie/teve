@@ -351,7 +351,7 @@ func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
 	url := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
 
 	go startRecording(url, start, stop, user.Name, title, channel)
-	base_url := fmt.Sprintf("/uri?user=%v&refresh=1", username)
+	base_url := fmt.Sprintf("%vuri?user=%v&refresh=1", config.BaseUrl, username)
 	http.Redirect(w, r, base_url, 302)
 }
 
@@ -364,6 +364,7 @@ func startVlcHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	d := make(map[string]interface{})
 	d["Url"] = r.FormValue("url")
+	d["BaseUrl"] = config.BaseUrl
 	t.Execute(w, d)
 }
 
@@ -373,12 +374,13 @@ func archivePageHandler(w http.ResponseWriter, r *http.Request) {
     d := make(map[string]interface{})
 	recordings, err := ioutil.ReadDir(config.RecordingsFolder)
 	fs := make([]File,0)
-	baseurl := fmt.Sprintf("http://%v/tv/vlc?url=", config.Hostname)
+	baseurl := fmt.Sprintf("http://%v%vvlc?url=", config.BaseUrl, config.Hostname)
 	for _ , file  := range recordings {
-		fileurl := fmt.Sprintf("%vhttp://teve:s3s4m@%v/tv/recordings/%v", baseurl, config.Hostname, file.Name())
+		fileurl := fmt.Sprintf("%vhttp://teve:s3s4m@%vrecordings/%v", baseurl, config.Hostname, config.BaseUrl, file.Name())
 		fs = append(fs, File{Name:file.Name(), Size:(file.Size()/1000000), Url:fileurl})
 	}
 	d["Files"] = fs
+	d["BaseUrl"] = config.BaseUrl
     if (err != nil) { fmt.Fprintf(w, "Could not list archive: " + err.Error()); return }
 	t.Execute(w, d)
 }
@@ -468,15 +470,15 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "Could not kill stream: "+err.Error())
 			return
 		}
-		url := fmt.Sprintf("./uni?user=%v", user.Name)
+		url := fmt.Sprintf("%vuni?user=%v", config.BaseUrl, user.Name)
 		http.Redirect(w, r, url, 302)
 	}
-
 	// Get the recordings for this user.
 	d["Recordings"] = recordings[user.Name]
 	d["RecordingsFolder"] = config.RecordingsFolder
 	d["Viewers"] = countStream()
 	d["Channels"] = config.Channels
+	d["BaseUrl"] = config.BaseUrl
 	d["User"] = user.Name
 	d["CurrentChannel"] = currentChannel
 	d["Transcoding"] = streams[user.Name].Transcode
@@ -507,7 +509,6 @@ func main() {
 
 	// The server has (re)started, so we load in the planned recordings.
 	loadPlannedRecordings()
-
 	http.HandleFunc("/", uniPageHandler)
 	http.HandleFunc("/record", startRecordingHandler)
 	http.HandleFunc("/vlc", startVlcHandler)
