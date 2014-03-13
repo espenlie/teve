@@ -1,0 +1,129 @@
+body {
+  font-size: 16px;
+}
+.home-menu {
+  background-color:#2d3e50 !important;
+  color: white;
+  padding: 0.5em;
+  text-align:left;
+}
+.home-menu .pure-menu-heading {
+  color: white;
+  font-weight: 400;
+  font-size: 120%;
+}
+.home-menu ul {
+  float:right;
+  padding-right: 20px;
+}
+.home-menu li span {
+  padding: 5px 20px; 
+}
+.home-menu li a {
+  color: white;
+}
+.button-green,
+.button-red,
+.button-yellow,
+.button-lblue {
+  color: white;
+  border-radius: 4px;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+.button-red {
+  background: rgb(202, 60, 60); /* this is a maroon */
+}
+.button-lblue {
+  background: rgb(66, 184, 221); /* this is a light blue */
+}
+.button-yellow {
+  background: rgb(223, 117, 20); /* this is an orange */
+}
+.button-green {
+  background: rgb(28, 184, 65); /* this is a green */
+}
+.clear {
+  height:70px;
+}
+.content {
+  padding-left: 28px;
+  padding-right: 28px;
+}
+.pure-hr {
+  background-color: #ddd;
+  height:1px;
+  border:0;
+}
+.channel {
+  width: 100%;
+  background: #ddd;
+  overflow:hidden;
+  line-height:45px;
+  margin-right:20px;
+}
+.channel a {
+  margin: 5px;
+  color: black;
+  text-decoration: none;
+}
+.right {
+  float:right;
+}
+tr.header td {
+  font-weight: bold;
+}
+.programme-list {
+  border-right:none;
+  border-top:none;
+  border-bottom:none;
+}
+.underlined {
+  width:100%;
+  border-bottom: 1px solid #ddd;
+}
+.bs-callout {
+    margin: 20px 0;
+    padding: 20px;
+    border-left: 3px solid #eee;
+    overflow: hidden;
+}
+.bs-callout p:last-child {
+    margin-bottom: 0;
+}
+.bs-callout-danger {
+    background-color: #fdf7f7;
+    border-color: #d9534f;
+}
+.bs-callout-warning {
+    background-color: #fcf8f2;
+    border-color: #f0ad4e;
+}
+.bs-callout-info {
+    background-color: #f4f8fa;
+    border-color: rgb(66, 184, 221);
+}
+.bs-callout h4 {
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+.bs-callout-danger h4 {
+    color: #d9534f;
+}
+.bs-callout-warning h4 {
+    color: #f0ad4e;
+}
+.bs-callout-info h4 {
+    color: rgb(66, 184, 221);
+}
+.set-button {
+  margin-left: 10px;
+}
+@media only screen and (max-width: 800px) {
+  .home-menu li {
+    display: block;
+    margin-top: 4px;
+  }
+  .clear {
+    height: 200px;
+  }
+}

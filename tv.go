@@ -350,7 +350,7 @@ func main() {
     http.HandleFunc("/", uniPageHandler)
     http.HandleFunc("/record", startRecordingHandler)
     serveSingle("/favicon.ico", "./static/favicon.ico")
-    http.Handle("/static", http.FileServer(http.Dir("./static/")))
+    http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
     http.Handle("/"+config.RecordingsFolder+"/", http.FileServer(http.Dir("")))
     http.ListenAndServe(":"+config.WebPort, nil)
 }

@@ -3,74 +3,9 @@
     <title>{{.User}} :: {{ .CurrentChannel }} :: teve</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
     <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.4.2/pure-min.css">
+    <link rel="stylesheet" href="./static/styles.css">
     <meta http-equiv="refresh" content="60; url=./uni?user={{.User}}&refresh=1">
-    <style>
-      body {
-        font-size: 16px;
-      }
-      .home-menu {
-        background-color:#2d3e50 !important;
-        color: white;
-        padding: 0.5em;
-        text-align:left;
-      }
-      .home-menu .pure-menu-heading {
-        color: white;
-        font-weight: 400;
-        font-size: 120%;
-      }
-      .home-menu ul {
-        float:right;
-        padding-right: 20px;
-      }
-      .home-menu li span {
-        padding: 5px 20px; 
-      }
-      .home-menu li a {
-        color: white;
-      }
-      .button-green,
-      .button-red,
-      .button-yellow,
-      .button-lblue {
-        color: white;
-        border-radius: 4px;
-        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
-      }
-      .button-red {
-        background: rgb(202, 60, 60); /* this is a maroon */
-      }
-      .button-lblue {
-        background: rgb(66, 184, 221); /* this is a light blue */
-      }
-      .button-yellow {
-        background: rgb(223, 117, 20); /* this is an orange */
-      }
-      .button-green {
-        background: rgb(28, 184, 65); /* this is a green */
-      }
-      .clear {
-        height:80px;
-      }
-      .content {
-        padding-left: 28px;
-        padding-right: 28px;
-      }
-      .pure-hr {
-        background-color: #ddd;
-        height:1px;
-        border:0;
-      }
-      .info-box {
-        background: #1f8dd6;
-        padding: 0.3em 1em;
-        border-radius: 3px;
-        color: #fff;
-      }
-      .info-box a {
-        color: #fff; 
-      }
-    </style>
+    <meta name="viewport" content="width=device-width, user-scalable=no">
   </head>
   <body>
   {{if .Users}}
@@ -99,19 +34,25 @@
         <form action="./uni" method="get" class="pure-form">
           <fieldset>
             <legend>Set transcoding in <b>kbit/s</b>. Transcoded with <b>mp2v</b> and scaled <b>0.7</b></legend>
-            <input type="hidden" name="user" value="{{.User}}">
-            <input type="hidden" name="channel" value="{{.CurrentChannel}}">
-            <input type="text" id="transcoding" name="transcoding" class="pure-input-1-2" value="{{.Transcoding}}">
-            <input type="submit" class="pure-button button-yellow" value="Set"></input>
+            <div class="pure-g">
+              <div class="pure-u-1-2">
+                <input type="hidden" name="user" value="{{.User}}">
+                <input type="hidden" name="channel" value="{{.CurrentChannel}}">
+                <input type="text" id="transcoding" class="pure-input-1" name="transcoding" value="{{.Transcoding}}">
+              </div>
+              <div class="pure-u-1-2">
+                <input type="submit" class="pure-button button-yellow set-button" value="Set"></input>
+              </div>
+            </div>
           </fieldset>
         </form>
-        <div class="info-box">
-        <p><b>Remember!</b></p>
+        <div class="bs-callout bs-callout-info">
+        <h4>Remember!</h4>
         <p>Your URL is: <a href="{{.URL}}"><em>{{.URL}}</em></a></p>
         </div>
       {{end}}
       {{if .Recordings}}
-      <p>Your recordings</p>
+      <h3 class="underlined">Your recordings</h3>
       <ul>
       {{range .Recordings}}
         <li><b>{{.Start}}=>{{.Stop}}</b>: {{.Title}}</li>
@@ -119,26 +60,33 @@
       </ul>
       {{end}}
     </p>
-    <p>Channel to be broadcasted on your stream:</p>
-    <ul>
+    <h2 class="underlined">Select channel</h2>
       {{$user := .User}}
       {{$transcoding := .Transcoding}}
       {{range .Channels}}
-      <li>
-        <a href="./uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}">{{.Name}}</a>
-        <ul>
-          {{$channel := .}}
-          {{range $index, $epg := .EPGlist}}
-          <li>
-          {{if not $index}}<b>{{end}}
-            (<a href="/record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}">R</a>) 
-              {{.Start}} => {{.Stop}}: {{.Title}}</li>
-          {{ if not $index}}</b>{{end}}
-          {{end}}
-        </ul>
-      </li>
+        <div class="channel">
+          <a href="./uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}"><b>{{.Name}}</b></a>
+          <a href="./uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Play</a>
+        </div>
+        {{if not .EPGlist}}
+        <p>No EPG data found.</p>
+        {{else}}
+        <table class="pure-table programme-list">
+            {{$channel := .}}
+            {{range $index, $epg := .EPGlist}}
+            <tr class="{{if not $index}}header{{end}}">
+              <td>
+                <a href="/record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}">R</a>
+              </td>
+              <td>{{.Start}}</td>
+              <td>{{.Stop}}</td>
+              <td>{{.Title}}</td>
+            </tr>
+            {{end}}
+        </table>
+        {{end}}
       {{end}}
-    </ul>
+      <br />
   </div>
   {{end}}
   </body>
