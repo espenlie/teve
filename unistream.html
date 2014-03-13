@@ -2,7 +2,75 @@
   <head>
     <title>{{.User}} :: {{ .CurrentChannel }} :: teve</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="http://yui.yahooapis.com/pure/0.4.2/pure-min.css">
     <meta http-equiv="refresh" content="60; url=./uni?user={{.User}}&refresh=1">
+    <style>
+      body {
+        font-size: 16px;
+      }
+      .home-menu {
+        background-color:#2d3e50 !important;
+        color: white;
+        padding: 0.5em;
+        text-align:left;
+      }
+      .home-menu .pure-menu-heading {
+        color: white;
+        font-weight: 400;
+        font-size: 120%;
+      }
+      .home-menu ul {
+        float:right;
+        padding-right: 20px;
+      }
+      .home-menu li span {
+        padding: 5px 20px; 
+      }
+      .home-menu li a {
+        color: white;
+      }
+      .button-green,
+      .button-red,
+      .button-yellow,
+      .button-lblue {
+        color: white;
+        border-radius: 4px;
+        text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+      }
+      .button-red {
+        background: rgb(202, 60, 60); /* this is a maroon */
+      }
+      .button-lblue {
+        background: rgb(66, 184, 221); /* this is a light blue */
+      }
+      .button-yellow {
+        background: rgb(223, 117, 20); /* this is an orange */
+      }
+      .button-green {
+        background: rgb(28, 184, 65); /* this is a green */
+      }
+      .clear {
+        height:80px;
+      }
+      .content {
+        padding-left: 28px;
+        padding-right: 28px;
+      }
+      .pure-hr {
+        background-color: #ddd;
+        height:1px;
+        border:0;
+      }
+      .info-box {
+        background: #1f8dd6;
+        padding: 0.3em 1em;
+        border-radius: 3px;
+        color: #fff;
+      }
+      .info-box a {
+        color: #fff; 
+      }
+    </style>
   </head>
   <body>
   {{if .Users}}
@@ -13,25 +81,34 @@
     {{end}}
     </ul>
   {{else}}
-    <h3>Hello {{.User}}</h3>
-    <hr>
-    <p>There are currently <b>{{.Viewers}}</b> active viewer(s).</p>
-    <p>Old recordings are available <a href="./{{.RecordingsFolder}}">here.</a>
-    <hr>
-    <p>You are playing: <b>{{.CurrentChannel}}</b>
+  <div class="home-menu pure-menu pure-menu-open pure-menu-fixed pure-menu-horizontal">
+    <a class="pure-menu-heading" href="#">teve</a>
+    <ul>
+      {{if .Running}}
+      <li><span>Playing <b>{{.CurrentChannel}}</b></span></li>
+      <li><a href="./uni?user={{.User}}&kchannel=1" class="pure-button button-red">Kill</a></li>
+      <li><a href="#" class="pure-button button-lblue">{{.Viewers}} viewers</a></li>
+      {{end}}
+      <li><a class="pure-button button-green" href="./{{.RecordingsFolder}}">Go to archive</a></li>
+      <li><span>Welcome {{.User}}!</span></li>
+    </ul>
+  </div>
+  <div class="clear"></div>
+  <div class="content">
       {{if .Running }}
-        (<a href="./uni?user={{.User}}&kchannel=1">Kill stream</a>)
-        <form action="./uni" method="get">
-          <b>Set transcoding: </b>
-          <input type="hidden" name="user" value="{{.User}}">
-          <input type="hidden" name="channel" value="{{.CurrentChannel}}">
-          <input type="text" name="transcoding" value="{{.Transcoding}}">
-          <input type="submit" value="Set"></input>
+        <form action="./uni" method="get" class="pure-form">
+          <fieldset>
+            <legend>Set transcoding in <b>kbit/s</b>. Transcoded with <b>mp2v</b> and scaled <b>0.7</b></legend>
+            <input type="hidden" name="user" value="{{.User}}">
+            <input type="hidden" name="channel" value="{{.CurrentChannel}}">
+            <input type="text" id="transcoding" name="transcoding" class="pure-input-1-2" value="{{.Transcoding}}">
+            <input type="submit" class="pure-button button-yellow" value="Set"></input>
+          </fieldset>
         </form>
-        <em>(0 for no transcoding enabled)</em>
-        <hr>
-        <p>Your URL is: <a href="{{.URL}}"><b><em>{{.URL}}</em></b></a></p>
-        <hr>
+        <div class="info-box">
+        <p><b>Remember!</b></p>
+        <p>Your URL is: <a href="{{.URL}}"><em>{{.URL}}</em></a></p>
+        </div>
       {{end}}
       {{if .Recordings}}
       <p>Your recordings</p>
@@ -62,6 +139,7 @@
       </li>
       {{end}}
     </ul>
+  </div>
   {{end}}
   </body>
 </html>
