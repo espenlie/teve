@@ -376,9 +376,9 @@ func archivePageHandler(w http.ResponseWriter, r *http.Request) {
 	d := make(map[string]interface{})
 	recordings, err := ioutil.ReadDir(config.RecordingsFolder)
 	fs := make([]File, 0)
-	baseurl := fmt.Sprintf("http://%v%vvlc?url=", config.BaseUrl, config.Hostname)
+	baseurl := fmt.Sprintf("http://%v%vvlc?url=", config.Hostname, config.BaseUrl)
 	for _, file := range recordings {
-		fileurl := fmt.Sprintf("%vhttp://teve:s3s4m@%vrecordings/%v", baseurl, config.Hostname, config.BaseUrl, file.Name())
+		fileurl := fmt.Sprintf("%vhttp://teve:s3s4m@%v%vrecordings/%v", baseurl, config.Hostname, config.BaseUrl, file.Name())
 		fs = append(fs, File{Name: file.Name(), Size: (file.Size() / 1000000), Url: fileurl})
 	}
 	d["Files"] = fs
