@@ -22,6 +22,8 @@
   ],
 
   "Hostname": "mycomputer.sexy",
+  "HttpUser": "name",
+  "HttpPass": "passw0rd",
   "BaseUrl" : "/",
 
   "StreamingPort": "6969",
