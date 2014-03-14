@@ -67,17 +67,18 @@ type EPG struct {
 }
 
 type Recording struct {
-	Id      int
+	Id      int64
 	Channel string
 	Start   string
 	Stop    string
 	Title   string
+  Cmd     *exec.Cmd
 }
 
 var config Config
 
 var streams = make(map[string]Command)
-var recordings = make(map[string][]Recording)
+var recordings = make(map[string][]*Recording)
 
 func loadConfig(filename string) Config {
 	file, err := ioutil.ReadFile(filename)
@@ -158,10 +159,7 @@ func removeRecording(id int64) {
 	}
 	tx, _ := dbh.Begin()
 	_, err = tx.Exec("DELETE FROM recordings WHERE id = $1", id)
-	if err != nil {
-		fmt.Printf("Could not remove: %v\n", err.Error())
-		return
-	}
+	if err != nil { fmt.Printf("Could not remove: %v\n", err.Error()); return }
 	_ = tx.Commit()
 }
 
@@ -262,6 +260,28 @@ func getEpgData(numEpg int) {
 	}
 }
 
+func stopRecording(id int64, username string) {
+  recs := recordings[username]
+  for i, recording := range recs {
+    if recording.Id == id {
+      removeRecording(recording.Id)
+      if recording.Cmd != nil {
+        killStream(recording.Cmd)
+      }
+      recs = append(recs[:i],recs[i+1:]...)
+    }
+  }
+  recordings[username] = recs
+}
+
+func stopRecordingHandler(w http.ResponseWriter, r *http.Request) {
+  id, _ := strconv.Atoi(r.FormValue("id"))
+  username := r.FormValue("username")
+  stopRecording(int64(id), username)
+	base_url := fmt.Sprintf("%vuri?user=%v&refresh=1", config.BaseUrl, username)
+	http.Redirect(w, r, base_url, 302)
+}
+
 func startRecording(url, sstart, sstop, username, title, channel string) {
 	// Parse the time.
 	layout := "2006-01-02 15:04"
@@ -285,23 +305,21 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 	}
 
 	// Add the recording to the array of recordings for this user.
-	recs := recordings[username]
-	key := len(recs)
 	programme_title := strings.Replace(title, " ", "-", -1)
 	filename := fmt.Sprintf("%v/%v-%v-%v.mkv", config.RecordingsFolder, time.Now().Format(file_layout), programme_title, username)
-	recs = append(recs, Recording{
-		Id:      key,
+	id, err := insertRecording(url, username, title, channel, start, stop)
+	if err != nil { fmt.Printf("Could not insert: %v\n", err.Error()); return	}
+  thisRecording := &Recording{
+		Id:      id,
 		Channel: "-",
 		Start:   start.Format(layout),
 		Stop:    stop.Format(short_layout),
 		Title:   programme_title,
-	})
-	recordings[username] = recs
-	id, err := insertRecording(url, username, title, channel, start, stop)
-	if err != nil {
-		fmt.Printf("Could not insert: %v\n", err.Error())
-		return
+    Cmd:     nil,
 	}
+	recs := recordings[username]
+	recs = append(recs, thisRecording)
+	recordings[username] = recs
 
 	if !(secondsInFuture < 0 && secondsToEnd > 0) {
 		// Wait until programme starts.
@@ -322,6 +340,7 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 		fmt.Println(err.Error())
 		return
 	}
+  thisRecording.Cmd = cmd
 
 	// Wait until programme stops.
 	time.Sleep(time.Duration(int(secondsToEnd)) * time.Second)
@@ -336,7 +355,7 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 
 	// Remove the recording from the user.
 	for i, recording := range recs {
-		if recording.Id == key {
+		if recording.Id == id {
 			recs = append(recs[:i], recs[i+1:]...)
 		}
 	}
@@ -520,6 +539,7 @@ func main() {
 	loadPlannedRecordings()
 	http.HandleFunc("/", uniPageHandler)
 	http.HandleFunc("/record", startRecordingHandler)
+	http.HandleFunc("/stopRecording", stopRecordingHandler)
 	http.HandleFunc("/vlc", startVlcHandler)
 	http.HandleFunc("/archive", archivePageHandler)
 	serveSingle("/favicon.ico", "./static/favicon.ico")
