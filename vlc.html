@@ -19,6 +19,12 @@ body {
 }
 </style>
 </head>
+<script>
+var enableDeinterlace = function() {
+  vlc = document.getElementById("vlc");
+  vlc.video.deinterlace.enable("yadif2x");
+}
+</script>
 <body>
 <div id="content">
 <h2>VLC web-media player</h2>
@@ -32,7 +38,9 @@ autoplay="yes"
 target="{{.Url}}"></embed>
 <b>Tip: </b><em>Double click to get fullscreen.</em><br />
 <b>Tip: </b><em>Problems? Try to stop and start the stream</em>
-<p>Playing <a href="{[.Url}}">{{.Url}}</a></p>
+<p>Playing <a href="{[.Url}}">{{.Url}}</a></br>
+<a href="#" onclick="enableDeinterlace()">Enable deinterlace Yadif2x</a>
+</p>
 </div>
 </body>
 </html>

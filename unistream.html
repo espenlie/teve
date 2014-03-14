@@ -57,8 +57,9 @@
       {{if .Recordings}}
       <h3 class="underlined">Your recordings</h3>
       <ul>
+      {{$user := .User}}
       {{range .Recordings}}
-        <li><b>{{.Start}}=>{{.Stop}}</b>: {{.Title}}</li>
+      <li><b>{{.Start}}=>{{.Stop}}</b>: {{.Title}} (<a href="./stopRecording?id={{.Id}}&username={{$user}}">Stop/delete</a>)</li>
       {{end}}
       </ul>
       {{end}}
