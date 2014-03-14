@@ -157,7 +157,7 @@ func removeRecording(id int64) {
 		return
 	}
 	tx, _ := dbh.Begin()
-	_, err = tx.Exec("REMOVE FROM recordings WHERE id = $1", id)
+	_, err = tx.Exec("DELETE FROM recordings WHERE id = $1", id)
 	if err != nil {
 		fmt.Printf("Could not remove: %v\n", err.Error())
 		return
