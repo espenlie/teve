@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -40,8 +41,8 @@ type Config struct {
 	Channels         []Channel
 	Users            []User
 	Hostname         string
-	HttpUser		 string
-	HttpPass		 string
+	HttpUser         string
+	HttpPass         string
 	BaseUrl          string
 	StreamingPort    string
 	WebPort          string
@@ -72,7 +73,7 @@ type Recording struct {
 	Start   string
 	Stop    string
 	Title   string
-  Cmd     *exec.Cmd
+	Cmd     *exec.Cmd
 }
 
 var config Config
@@ -264,23 +265,23 @@ func getEpgData(numEpg int) {
 }
 
 func stopRecording(id int64, username string) {
-  recs := recordings[username]
-  for i, recording := range recs {
-    if recording.Id == id {
-      removeRecording(recording.Id)
-      if recording.Cmd != nil {
-        killStream(recording.Cmd)
-      }
-      recs = append(recs[:i],recs[i+1:]...)
-    }
-  }
-  recordings[username] = recs
+	recs := recordings[username]
+	for i, recording := range recs {
+		if recording.Id == id {
+			removeRecording(recording.Id)
+			if recording.Cmd != nil {
+				killStream(recording.Cmd)
+			}
+			recs = append(recs[:i], recs[i+1:]...)
+		}
+	}
+	recordings[username] = recs
 }
 
 func stopRecordingHandler(w http.ResponseWriter, r *http.Request) {
-  id, _ := strconv.Atoi(r.FormValue("id"))
-  username := r.FormValue("username")
-  stopRecording(int64(id), username)
+	id, _ := strconv.Atoi(r.FormValue("id"))
+	username := r.FormValue("username")
+	stopRecording(int64(id), username)
 	base_url := fmt.Sprintf("%vuri?user=%v&refresh=1", config.BaseUrl, username)
 	http.Redirect(w, r, base_url, 302)
 }
@@ -311,14 +312,17 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 	programme_title := strings.Replace(title, " ", "-", -1)
 	filename := fmt.Sprintf("%v/%v-%v-%v.mkv", config.RecordingsFolder, time.Now().Format(file_layout), programme_title, username)
 	id, err := insertRecording(url, username, title, channel, start, stop)
-	if err != nil { fmt.Printf("Could not insert: %v\n", err.Error()); return	}
-  thisRecording := &Recording{
+	if err != nil {
+		fmt.Printf("Could not insert: %v\n", err.Error())
+		return
+	}
+	thisRecording := &Recording{
 		Id:      id,
 		Channel: "-",
 		Start:   start.Format(layout),
 		Stop:    stop.Format(short_layout),
 		Title:   programme_title,
-    Cmd:     nil,
+		Cmd:     nil,
 	}
 	recs := recordings[username]
 	recs = append(recs, thisRecording)
@@ -343,7 +347,7 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 		fmt.Println(err.Error())
 		return
 	}
-  thisRecording.Cmd = cmd
+	thisRecording.Cmd = cmd
 
 	// Wait until programme stops.
 	time.Sleep(time.Duration(int(secondsToEnd)) * time.Second)
@@ -392,11 +396,29 @@ func startVlcHandler(w http.ResponseWriter, r *http.Request) {
 	t.Execute(w, d)
 }
 
+func deleteRecording(name string) error {
+	err := os.Remove(config.RecordingsFolder + "/" + name)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func archivePageHandler(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("archive.html")
 	if err != nil {
 		fmt.Fprintf(w, "Could not parse template file: "+err.Error())
 		return
+	}
+	deleteform := r.FormValue("delete")
+	if deleteform != "" {
+		err := deleteRecording(deleteform)
+		if err != nil {
+			fmt.Fprintf(w, "Could not delete recording: "+err.Error())
+			return
+		}
+		base_url := fmt.Sprintf("%varchive", config.BaseUrl)
+		http.Redirect(w, r, base_url, 302)
 	}
 	d := make(map[string]interface{})
 	recordings, err := ioutil.ReadDir(config.RecordingsFolder)
@@ -404,7 +426,7 @@ func archivePageHandler(w http.ResponseWriter, r *http.Request) {
 	baseurl := fmt.Sprintf("http://%v%vvlc?url=", config.Hostname, config.BaseUrl)
 	for _, file := range recordings {
 		fileurl := fmt.Sprintf("%vhttp://%v:%v@%v%vrecordings/%v", baseurl, config.HttpUser, config.HttpPass, config.Hostname, config.BaseUrl, file.Name())
-		streamurl := fmt.Sprintf("http://%v%vrecordings/%v", config.Hostname,config.BaseUrl, file.Name())
+		streamurl := fmt.Sprintf("http://%v%vrecordings/%v", config.Hostname, config.BaseUrl, file.Name())
 		fs = append(fs, File{Name: file.Name(), Size: (file.Size() / 1000000), Url: fileurl, SUrl: streamurl})
 	}
 	d["Files"] = fs

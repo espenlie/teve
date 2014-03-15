@@ -13,6 +13,7 @@ def main():
     channels = [
             { 'epg': 'aljazeera.net', 'ui': 'Al Jazeera Intl'},
             { 'epg': 'nrk1.nrk.no',   'ui': 'NRK1 HD'},
+            { 'epg': 'nrk1.nrk.no',   'ui': 'NRK1 Midtnytt'},
             { 'epg': 'nrk2.nrk.no',   'ui': 'NRK2'},
             { 'epg': 'no.bbchd.no',   'ui': 'BBC World News'},
             { 'epg': 'film.tv2.no',   'ui': 'TV2 Film'},
