@@ -6,6 +6,7 @@ body {
   color: white;
   padding: 0.5em;
   text-align:left;
+  float:left;
 }
 .home-menu .pure-menu-heading {
   color: white;
