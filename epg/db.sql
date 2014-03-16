@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS recordings (
   username varchar(20),
   title varchar(256),
   channel varchar(30),
+  transcode varchar(4),
   unique(url,start,title,channel)
 );
 GRANT ALL ON epg TO epguser;

@@ -73,13 +73,14 @@ type Recording struct {
 	Start   string
 	Stop    string
 	Title   string
+	User    string
 	Cmd     *exec.Cmd
 }
 
 var config Config
 
 var streams = make(map[string]Command)
-var recordings = make(map[string][]*Recording)
+var recordings = make(map[int64]Recording)
 
 func loadConfig(filename string) Config {
 	file, err := ioutil.ReadFile(filename)
@@ -114,32 +115,41 @@ func loadPlannedRecordings() {
 		removeRecording(id)
 	}
 
-	rows, err = dbh.Query("SELECT url,start,stop,username,title,channel FROM recordings")
+	rows, err = dbh.Query("SELECT url,start,stop,username,title,channel,transcode FROM recordings")
 	if err != nil {
 		fmt.Printf("Query failed: %v\n", err.Error())
 		return
 	}
+	cnt := 0
 	for rows.Next() {
-		var url, username, title, channel string
+		var url, username, title, channel, transcode string
 		var start, stop time.Time
-		rows.Scan(&url, &start, &stop, &username, &title, &channel)
-		go startRecording(url, start.Format(long_form), stop.Format(long_form), username, title, channel)
+		rows.Scan(&url, &start, &stop, &username, &title, &channel, &transcode)
+		go startRecording(url, start.Format(long_form), stop.Format(long_form), username, title, channel, transcode)
+		cnt += 1
 	}
+	fmt.Printf("Loaded %d recordings from DB.\n", cnt)
 }
 
-func insertRecording(url, username, title, channel string, start, stop time.Time) (int64, error) {
+func insertRecording(url, username, title, channel, transcode string, start, stop time.Time) (int64, error) {
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
 	if err != nil {
 		return -1, err
 	}
-	tx, _ := dbh.Begin()
+	tx, err := dbh.Begin()
 	var id int64
-	err = tx.QueryRow("SELECT id FROM recordings WHERE username = $1 AND title = $2", username, title).Scan(&id)
+	err = tx.QueryRow(`SELECT id FROM recordings
+                     WHERE title = $1
+                     AND channel = $2
+                     AND start = $3
+                     AND stop = $4`, title, channel, start, stop).Scan(&id)
 	if err == sql.ErrNoRows {
 		// Great the recording does not exist in the DB yet, lets insert it.
-		res, err := tx.Exec("INSERT INTO recordings(url,start,stop,username,title,channel) VALUES ($1,$2,$3,$4,$5,$6)",
-			url, start, stop, username, title, channel)
+		res, err := tx.Exec(`INSERT INTO recordings(
+    url,start,stop,username,title,channel,transcode) VALUES
+    ($1,$2,$3,$4,$5,$6,$7)`,
+			url, start, stop, username, title, channel, transcode)
 		if err != nil {
 			return -1, err
 		}
@@ -148,14 +158,17 @@ func insertRecording(url, username, title, channel string, start, stop time.Time
 	} else if err != nil {
 		return -1, err
 	}
+	// We have either inserted the recording successfully, or the recording
+	// already exists and we return the id.
 	return id, nil
 }
 
 func removeRecording(id int64) {
+	// Delete from the DB
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
 	if err != nil {
-		fmt.Printf("Problems with EPG db: %v\n", err.Error())
+		fmt.Printf("Problems with recordings db: %v\n", err.Error())
 		return
 	}
 	tx, _ := dbh.Begin()
@@ -165,6 +178,9 @@ func removeRecording(id int64) {
 		return
 	}
 	_ = tx.Commit()
+
+	// Delete from cmd and kill command.
+	delete(recordings, id)
 }
 
 func getVLCstr(transcoding int, channel, dst, access string) string {
@@ -264,29 +280,18 @@ func getEpgData(numEpg int) {
 	}
 }
 
-func stopRecording(id int64, username string) {
-	recs := recordings[username]
-	for i, recording := range recs {
-		if recording.Id == id {
-			removeRecording(recording.Id)
-			if recording.Cmd != nil {
-				killStream(recording.Cmd)
-			}
-			recs = append(recs[:i], recs[i+1:]...)
-		}
-	}
-	recordings[username] = recs
-}
-
 func stopRecordingHandler(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.FormValue("id"))
 	username := r.FormValue("username")
-	stopRecording(int64(id), username)
+	removeRecording(int64(id))
+	if _, ok := recordings[int64(id)]; ok {
+		_ = killStream(recordings[int64(id)].Cmd)
+	}
 	base_url := fmt.Sprintf("%vuri?user=%v&refresh=1", config.BaseUrl, username)
 	http.Redirect(w, r, base_url, 302)
 }
 
-func startRecording(url, sstart, sstop, username, title, channel string) {
+func startRecording(url, sstart, sstop, username, title, channel, transcode string) {
 	// Parse the time.
 	layout := "2006-01-02 15:04"
 	short_layout := "15:04"
@@ -297,13 +302,15 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 		fmt.Println(err.Error())
 		return
 	}
+
 	// Go assumes UTC, and as we are on Go 1.0 and not 1.1 we dont have ParseInLocation.
 	// Thus we just convert now-time to UTC and add an hour.
 	oslo := time.Now().UTC().Add(time.Duration(3600 * time.Second))
 
 	secondsInFuture := start.Sub(oslo).Seconds()
-	secondsToEnd := stop.Sub(oslo).Seconds()
-	if secondsToEnd < 0 {
+	duration := stop.Sub(start).Seconds()
+
+	if duration < 0 {
 		fmt.Println("Failed due to negative duration.")
 		return
 	}
@@ -311,30 +318,11 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 	// Add the recording to the array of recordings for this user.
 	programme_title := strings.Replace(title, " ", "-", -1)
 	filename := fmt.Sprintf("%v/%v-%v-%v.mkv", config.RecordingsFolder, time.Now().Format(file_layout), programme_title, username)
-	id, err := insertRecording(url, username, title, channel, start, stop)
+	id, err := insertRecording(url, username, title, channel, transcode, start, stop)
 	if err != nil {
 		fmt.Printf("Could not insert: %v\n", err.Error())
 		return
 	}
-	thisRecording := &Recording{
-		Id:      id,
-		Channel: "-",
-		Start:   start.Format(layout),
-		Stop:    stop.Format(short_layout),
-		Title:   programme_title,
-		Cmd:     nil,
-	}
-	recs := recordings[username]
-	recs = append(recs, thisRecording)
-	recordings[username] = recs
-
-	if !(secondsInFuture < 0 && secondsToEnd > 0) {
-		// Wait until programme starts.
-		time.Sleep(time.Duration(int(secondsInFuture)) * time.Second)
-	}
-
-	// Start the recording and save to disk.
-	//command := fmt.Sprintf("ffmpeg -i %v -c copy %v.mkv", url, filename)
 	ch, err := getChannel(channel)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -342,15 +330,30 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 	}
 	command := getVLCstr(0, ch.Address, filename, "file")
 	cmd := exec.Command("bash", "-c", command)
+	recordings[id] = Recording{
+		Id:      id,
+		User:    username,
+		Title:   programme_title,
+		Start:   start.Format(layout),
+		Stop:    stop.Format(short_layout),
+		Channel: channel,
+		Cmd:     cmd,
+	}
+
+	if !(secondsInFuture <= 0) {
+		// Wait until programme starts.
+		time.Sleep(time.Duration(int(secondsInFuture)) * time.Second)
+	}
+
+	// Start the recording and save to disk.
 	err = cmd.Start()
 	if err != nil {
 		fmt.Println(err.Error())
 		return
 	}
-	thisRecording.Cmd = cmd
 
 	// Wait until programme stops.
-	time.Sleep(time.Duration(int(secondsToEnd)) * time.Second)
+	time.Sleep(time.Duration(int(duration)) * time.Second)
 
 	// Kill the recording.
 	err = killStream(cmd)
@@ -359,14 +362,6 @@ func startRecording(url, sstart, sstop, username, title, channel string) {
 		return
 	}
 	removeRecording(id)
-
-	// Remove the recording from the user.
-	for i, recording := range recs {
-		if recording.Id == id {
-			recs = append(recs[:i], recs[i+1:]...)
-		}
-	}
-	recordings[username] = recs
 }
 
 func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
@@ -375,11 +370,11 @@ func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
 	stop := r.FormValue("stop")
 	title := r.FormValue("title")
 	channel := r.FormValue("channel")
+	transcode := r.FormValue("transcode")
 	user, _ := getUser(username)
 
 	url := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
-
-	go startRecording(url, start, stop, user.Name, title, channel)
+	go startRecording(url, start, stop, user.Name, title, channel, transcode)
 	base_url := fmt.Sprintf("%vuri?user=%v&refresh=1", config.BaseUrl, username)
 	http.Redirect(w, r, base_url, 302)
 }
@@ -527,7 +522,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, url, 302)
 	}
 	// Get the recordings for this user.
-	d["Recordings"] = recordings[user.Name]
+	d["Recordings"] = recordings
 	d["RecordingsFolder"] = config.RecordingsFolder
 	d["Viewers"] = countStream()
 	d["Channels"] = config.Channels
