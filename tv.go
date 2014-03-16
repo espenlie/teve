@@ -68,13 +68,14 @@ type EPG struct {
 }
 
 type Recording struct {
-	Id      int64
-	Channel string
-	Start   string
-	Stop    string
-	Title   string
-	User    string
-	Cmd     *exec.Cmd
+	Id          int64
+	Channel     string
+	Start       string
+	Stop        string
+	Title       string
+	User        string
+	Transcoding string
+	Cmd         *exec.Cmd
 }
 
 var config Config
@@ -115,23 +116,23 @@ func loadPlannedRecordings() {
 		removeRecording(id)
 	}
 
-	rows, err = dbh.Query("SELECT url,start,stop,username,title,channel,transcode FROM recordings")
+	rows, err = dbh.Query("SELECT start,stop,username,title,channel,transcode FROM recordings")
 	if err != nil {
 		fmt.Printf("Query failed: %v\n", err.Error())
 		return
 	}
 	cnt := 0
 	for rows.Next() {
-		var url, username, title, channel, transcode string
+		var username, title, channel, transcode string
 		var start, stop time.Time
-		rows.Scan(&url, &start, &stop, &username, &title, &channel, &transcode)
-		go startRecording(url, start.Format(long_form), stop.Format(long_form), username, title, channel, transcode)
+		rows.Scan(&start, &stop, &username, &title, &channel, &transcode)
+		go startRecording(start.Format(long_form), stop.Format(long_form), username, title, channel, transcode)
 		cnt += 1
 	}
 	fmt.Printf("Loaded %d recordings from DB.\n", cnt)
 }
 
-func insertRecording(url, username, title, channel, transcode string, start, stop time.Time) (int64, error) {
+func insertRecording(username, title, channel, transcode string, start, stop time.Time) (int64, error) {
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
 	if err != nil {
@@ -147,9 +148,9 @@ func insertRecording(url, username, title, channel, transcode string, start, sto
 	if err == sql.ErrNoRows {
 		// Great the recording does not exist in the DB yet, lets insert it.
 		res, err := tx.Exec(`INSERT INTO recordings(
-    url,start,stop,username,title,channel,transcode) VALUES
-    ($1,$2,$3,$4,$5,$6,$7)`,
-			url, start, stop, username, title, channel, transcode)
+    start,stop,username,title,channel,transcode) VALUES
+    ($1,$2,$3,$4,$5,$6)`,
+			start, stop, username, title, channel, transcode)
 		if err != nil {
 			return -1, err
 		}
@@ -291,7 +292,7 @@ func stopRecordingHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, base_url, 302)
 }
 
-func startRecording(url, sstart, sstop, username, title, channel, transcode string) {
+func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	// Parse the time.
 	layout := "2006-01-02 15:04"
 	short_layout := "15:04"
@@ -318,7 +319,7 @@ func startRecording(url, sstart, sstop, username, title, channel, transcode stri
 	// Add the recording to the array of recordings for this user.
 	programme_title := strings.Replace(title, " ", "-", -1)
 	filename := fmt.Sprintf("%v/%v-%v-%v.mkv", config.RecordingsFolder, time.Now().Format(file_layout), programme_title, username)
-	id, err := insertRecording(url, username, title, channel, transcode, start, stop)
+	id, err := insertRecording(username, title, channel, transcode, start, stop)
 	if err != nil {
 		fmt.Printf("Could not insert: %v\n", err.Error())
 		return
@@ -331,13 +332,14 @@ func startRecording(url, sstart, sstop, username, title, channel, transcode stri
 	command := getVLCstr(0, ch.Address, filename, "file")
 	cmd := exec.Command("bash", "-c", command)
 	recordings[id] = Recording{
-		Id:      id,
-		User:    username,
-		Title:   programme_title,
-		Start:   start.Format(layout),
-		Stop:    stop.Format(short_layout),
-		Channel: channel,
-		Cmd:     cmd,
+		Id:          id,
+		User:        username,
+		Title:       programme_title,
+		Start:       start.Format(layout),
+		Stop:        stop.Format(short_layout),
+		Channel:     channel,
+		Transcoding: transcode,
+		Cmd:         cmd,
 	}
 
 	if !(secondsInFuture <= 0) {
@@ -373,8 +375,8 @@ func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
 	transcode := r.FormValue("transcode")
 	user, _ := getUser(username)
 
-	url := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
-	go startRecording(url, start, stop, user.Name, title, channel, transcode)
+	//url := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
+	go startRecording(start, stop, user.Name, title, channel, transcode)
 	base_url := fmt.Sprintf("%vuri?user=%v&refresh=1", config.BaseUrl, username)
 	http.Redirect(w, r, base_url, 302)
 }

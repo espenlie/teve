@@ -23,20 +23,20 @@ body {
 </head>
 <body>
 <div id="content">
-<h2>Archive</h2>
+<h2>Arkiv</h2>
   {{if .Files}}
   {{$base := .BaseUrl}}
     <table>
-        <th>Record</th>
-        <th>Size</th>
+        <th>Navn</th>
+        <th>Størrelse</th>
         <th></th>
         <th></th>
     {{range .Files}}
         <tr>
             <td><a href="{{.Url}}">{{.Name}}</a><td>
             <td>{{.Size}}MB<td>
-            <td><a href="{{.SUrl}}" class="pure-button button-green">Link</a><td>
-            <td><a href="{{$base}}archive?delete={{.Name}}" class="pure-button button-red">Delete</a></td>
+            <td><a href="{{.SUrl}}" class="pure-button button-green">Direkte-lenke</a><td>
+            <td><a href="{{$base}}archive?delete={{.Name}}" class="pure-button button-red">Slett</a></td>
         </tr>
     {{end}}
     </ul>

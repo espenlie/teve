@@ -10,7 +10,7 @@
   <body>
   {{$base := .BaseUrl}}
   {{if .Users}}
-    <p><b>No user selected.</b> Please choose below:</p>
+    <p><b>Ingen bruker valgt!</b> Vennligst velg én av alternativene nedenfor:</p>
     <ul>
     {{range .Users}}
       <li><a href="{{$base}}uni?user={{.Name}}">{{.Name}}</a><br /></li>
@@ -21,12 +21,12 @@
     <a class="pure-menu-heading" href="{{$base}}uni?user={{.User}}&refresh=1">teve</a>
     <ul>
       {{if .Running}}
-      <li><span>Playing <b>{{.CurrentChannel}}</b></span></li>
-      <li><a href="{{$base}}uni?user={{.User}}&kchannel=1" class="pure-button button-red">Kill</a></li>
-      <li><a href="#" class="pure-button button-lblue">{{.Viewers}} viewers</a></li>
+      <li><span>Spiller <b>{{.CurrentChannel}}</b></span></li>
+      <li><a href="{{$base}}uni?user={{.User}}&kchannel=1" class="pure-button button-red">Stopp</a></li>
+      <li><a href="#" class="pure-button button-lblue">{{.Viewers}} seere</a></li>
       {{end}}
-      <li><a class="pure-button button-green" href="{{$base}}archive">Go to archive</a></li>
-      <li><span>Welcome {{.User}}!</span></li>
+      <li><a class="pure-button button-green" href="{{$base}}archive">Gå til arkiv</a></li>
+      <li><span>Velkommen {{.User}}!</span></li>
     </ul>
   </div>
   <div class="clear"></div>
@@ -34,7 +34,7 @@
       {{if .Running }}
         <form action="{{$base}}uni" method="get" class="pure-form">
           <fieldset>
-            <legend>Set transcoding in <b>kbit/s</b>. Transcoded with <b>mp2v</b> and scaled <b>0.7</b></legend>
+            <legend>Sett transkoding i <b>kbit/s</b>. Transkodet med <b>mp2v</b> og skalert med faktor på <b>0.7</b></legend>
             <div class="pure-g">
               <div class="pure-u-1-2">
                 <input type="hidden" name="user" value="{{.User}}">
@@ -42,38 +42,40 @@
                 <input type="text" id="transcoding" class="pure-input-1" name="transcoding" value="{{.Transcoding}}">
               </div>
               <div class="pure-u-1-2">
-                <input type="submit" class="pure-button button-yellow set-button" value="Set"></input>
+                <input type="submit" class="pure-button button-yellow set-button" value="Lagre"></input>
               </div>
             </div>
           </fieldset>
         </form>
         <div class="bs-callout bs-callout-danger">
         <h4>Play in VLC?</h4>
-        <p>Your URL is: <a href="{{.URL}}"><em>{{.URL}}</em></a></p>
-        <p><a href="{{$base}}vlc?url={{.URL}}" target="_blank">Click here</a> to play in your browser (requires <a href="http://www.videolan.org/vlc/#download">VLC-plugin</a> and opens new tab/window)</p>
+        <p>Din URL er: <a href="{{.URL}}"><em>{{.URL}}</em></a></p>
+        <p><a href="{{$base}}vlc?url={{.URL}}" target="_blank">Trykk her</a> for å spille i nettleseren din (Du behøver en <a href="http://www.videolan.org/vlc/#download">VLC-plugin</a> og lenken blir åpnet i ny tab/vindu)</p>
         </p>
         </div>
       {{end}}
       {{if .Recordings}}
-      <h3 class="underlined">Your recordings</h3>
+      <h3 class="underlined">Planlagte opptak</h3>
       <ul>
       {{$user := .User}}
       {{range .Recordings}}
-      <li><b>{{.Start}}=>{{.Stop}}</b>: {{.Title}} (<a href="./stopRecording?id={{.Id}}&username={{$user}}">Stop/delete</a>)</li>
+      <li><b>{{.Start}}=>{{.Stop}}</b>: <em>{{.Title}}</em> på {{ .Channel }}
+      av {{ .User }} med transkoding: {{ .Transcoding }} (<a href="./stopRecording?id={{.Id}}&username={{$user}}">Stopp/slett</a>)</li>
       {{end}}
       </ul>
       {{end}}
     </p>
-    <h2 class="underlined">Select channel</h2>
+    <h2 class="underlined">Velg kanal</h2>
       {{$user := .User}}
       {{$transcoding := .Transcoding}}
       {{range .Channels}}
         <div class="channel">
           <a href="{{$base}}uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}"><b>{{.Name}}</b></a>
-          <a href="{{$base}}uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Play</a>
+          <a
+            href="{{$base}}uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Spill av</a>
         </div>
         {{if not .EPGlist}}
-        <p>No EPG data found.</p>
+        <p>Ingen EPG-data funnet for denne kanalen</p>
         {{else}}
         <table class="pure-table programme-list">
             {{$channel := .}}
