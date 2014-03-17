@@ -199,7 +199,7 @@ func getVLCstr(transcoding int, channel, dst, access string) string {
 }
 
 func startUniStream(channel Channel, user User, transcoding int) error {
-	userSuffix := fmt.Sprintf(":140%v/%v", user.Id, user.Name)
+	userSuffix := fmt.Sprintf(":%v%v/%v", config.StreamingPort, user.Id, user.Name)
 	command := getVLCstr(transcoding, channel.Address, userSuffix, "http")
 	cmd := exec.Command("bash", "-c", command)
 	err := cmd.Start()
