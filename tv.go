@@ -305,8 +305,8 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	}
 
 	// Go assumes UTC, and as we are on Go 1.0 and not 1.1 we dont have ParseInLocation.
-	// Thus we just convert now-time to UTC and add an hour.
-	oslo := time.Now().UTC().Add(time.Duration(3600 * time.Second))
+	// Thus we just convert now-time to UTC and add two hours.
+	oslo := time.Now().UTC().Add(time.Duration(7200 * time.Second))
 
 	secondsInFuture := start.Sub(oslo).Seconds()
 	duration := stop.Sub(start).Seconds()
