@@ -227,13 +227,14 @@ func killStream(cmd *exec.Cmd) error {
 	return nil
 }
 
-func getUser(username string) (User, error) {
+func getUser(r *http.Request) (User, error) {
+	username := r.Header.Get("X-Remote-User")
 	for _, user := range config.Users {
 		if user.Name == username {
 			return user, nil
 		}
 	}
-	return User{}, errors.New("Did not find user.")
+	return User{}, errors.New("Did not find user '" + username + "' authenticated from Basic Auth. Does your htpasswd file match accounts in config.json?")
 }
 
 func getChannel(channel_name string) (Channel, error) {
@@ -283,12 +284,11 @@ func getEpgData(numEpg int) {
 
 func stopRecordingHandler(w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(r.FormValue("id"))
-	username := r.FormValue("username")
 	removeRecording(int64(id))
 	if _, ok := recordings[int64(id)]; ok {
 		_ = killStream(recordings[int64(id)].Cmd)
 	}
-	base_url := fmt.Sprintf("%vuri?user=%v&refresh=1", config.BaseUrl, username)
+	base_url := fmt.Sprintf("%v?refresh=1", config.BaseUrl)
 	http.Redirect(w, r, base_url, 302)
 }
 
@@ -309,8 +309,12 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	_, inFuture := time.Now().Zone()
 	oslo := time.Now().UTC().Add(time.Duration(time.Duration(inFuture) * time.Second))
 
-	secondsInFuture := start.Sub(oslo).Seconds()
 	duration := stop.Sub(start).Seconds()
+	secondsInFuture := start.Sub(oslo).Seconds()
+	if secondsInFuture < 0 {
+		// Programme has already started.
+		duration = stop.Sub(oslo).Seconds()
+	}
 
 	if duration < 0 {
 		fmt.Println("Failed due to negative duration.")
@@ -368,17 +372,16 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 }
 
 func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
-	username := r.FormValue("user")
 	start := r.FormValue("start")
 	stop := r.FormValue("stop")
 	title := r.FormValue("title")
 	channel := r.FormValue("channel")
 	transcode := r.FormValue("transcode")
-	user, _ := getUser(username)
+	user, _ := getUser(r)
 
 	//url := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
 	go startRecording(start, stop, user.Name, title, channel, transcode)
-	base_url := fmt.Sprintf("%vuri?user=%v&refresh=1", config.BaseUrl, username)
+	base_url := fmt.Sprintf("%vuri?&refresh=1", config.BaseUrl)
 	http.Redirect(w, r, base_url, 302)
 }
 
@@ -445,11 +448,10 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure user has logged in.
-	user, err := getUser(r.FormValue("user"))
+	// Ensure user that has logged in, is in the system.
+	user, err := getUser(r)
 	if err != nil {
-		d["Users"] = config.Users
-		t.Execute(w, d)
+		fmt.Printf("Authentication problem: %v\n", err)
 		return
 	}
 
@@ -521,8 +523,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "Could not kill stream: "+err.Error())
 			return
 		}
-		url := fmt.Sprintf("%v/?user=%v", config.BaseUrl, user.Name)
-		http.Redirect(w, r, url, 302)
+		http.Redirect(w, r, config.BaseUrl, 302)
 	}
 	// Get the recordings for this user.
 	d["Recordings"] = recordings
@@ -569,7 +570,7 @@ func main() {
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 	http.Handle("/"+config.RecordingsFolder+"/", http.FileServer(http.Dir("")))
 	err := http.ListenAndServe(":"+config.WebPort, nil)
-    if (err != nil) { 
+    if (err != nil) {
 		fmt.Println("Problemer med å serve content: ", err)
     }
 }

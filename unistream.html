@@ -1,28 +1,20 @@
 <html>
   <head>
-    <title>{{.User}} :: {{ .CurrentChannel }} :: teve</title>
+    <title>{{ .CurrentChannel }} :: {{.User}} :: teve</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
     <link rel="stylesheet" href="{{.BaseUrl}}static/pure-min.css">
     <link rel="stylesheet" href="{{.BaseUrl}}static/styles.css">
-    <meta http-equiv="refresh" content="180; url={{.BaseUrl}}?user={{.User}}&refresh=1">
+    <meta http-equiv="refresh" content="180; url={{.BaseUrl}}?refresh=1">
     <meta name="viewport" content="width=device-width, user-scalable=no">
   </head>
   <body>
   {{$base := .BaseUrl}}
-  {{if .Users}}
-    <p><b>Ingen bruker valgt!</b> Vennligst velg én av alternativene nedenfor:</p>
-    <ul>
-    {{range .Users}}
-      <li><a href="{{$base}}?user={{.Name}}">{{.Name}}</a><br /></li>
-    {{end}}
-    </ul>
-  {{else}}
   <div class="home-menu pure-menu pure-menu-open pure-menu-fixed pure-menu-horizontal">
-    <a class="pure-menu-heading" href="{{$base}}?user={{.User}}&refresh=1">teve</a>
+    <a class="pure-menu-heading" href="{{$base}}?refresh=1">teve</a>
     <ul>
       {{if .Running}}
       <li><span>Spiller <b>{{.CurrentChannel}}</b></span></li>
-      <li><a href="{{$base}}?user={{.User}}&kchannel=1" class="pure-button button-red">Stopp</a></li>
+      <li><a href="{{$base}}?kchannel=1" class="pure-button button-red">Stopp</a></li>
       <li><a href="#" class="pure-button button-lblue">{{.Viewers}} seere</a></li>
       {{end}}
       <li><a class="pure-button button-green" href="{{$base}}archive">Gå til arkiv</a></li>
@@ -32,12 +24,11 @@
   <div class="clear"></div>
   <div class="content">
       {{if .Running }}
-        <form action="{{$base}}uni" method="get" class="pure-form">
+        <form action="{{$base}}" method="get" class="pure-form">
           <fieldset>
             <legend>Sett transkoding i <b>kbit/s</b>. Transkodet med <b>mp2v</b> og skalert med faktor på <b>0.7</b></legend>
             <div class="pure-g">
               <div class="pure-u-1-2">
-                <input type="hidden" name="user" value="{{.User}}">
                 <input type="hidden" name="channel" value="{{.CurrentChannel}}">
                 <input type="text" id="transcoding" class="pure-input-1" name="transcoding" value="{{.Transcoding}}">
               </div>
@@ -70,9 +61,9 @@
       {{$transcoding := .Transcoding}}
       {{range .Channels}}
         <div class="channel">
-          <a href="{{$base}}?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}"><b>{{.Name}}</b></a>
+          <a href="{{$base}}?channel={{.Name}}&transcoding={{$transcoding}}"><b>{{.Name}}</b></a>
           <a
-            href="{{$base}}?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Spill av</a>
+            href="{{$base}}?channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Spill av</a>
         </div>
         {{if not .EPGlist}}
         <p>Ingen EPG-data funnet for denne kanalen</p>
@@ -94,6 +85,5 @@
       {{end}}
       <br />
   </div>
-  {{end}}
   </body>
 </html>
