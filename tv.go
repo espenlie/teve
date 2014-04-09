@@ -521,7 +521,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 			fmt.Fprintf(w, "Could not kill stream: "+err.Error())
 			return
 		}
-		url := fmt.Sprintf("%vuni?user=%v", config.BaseUrl, user.Name)
+		url := fmt.Sprintf("%v/?user=%v", config.BaseUrl, user.Name)
 		http.Redirect(w, r, url, 302)
 	}
 	// Get the recordings for this user.
@@ -568,5 +568,8 @@ func main() {
 	serveSingle("/favicon.ico", "./static/favicon.ico")
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 	http.Handle("/"+config.RecordingsFolder+"/", http.FileServer(http.Dir("")))
-	http.ListenAndServe(":"+config.WebPort, nil)
+	err := http.ListenAndServe(":"+config.WebPort, nil)
+    if (err != nil) { 
+		fmt.Println("Problemer med å serve content: ", err)
+    }
 }

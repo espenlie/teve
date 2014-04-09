@@ -2,9 +2,9 @@
   <head>
     <title>{{.User}} :: {{ .CurrentChannel }} :: teve</title>
     <link rel="icon" href="/favicon.ico" type="image/x-icon" />
-    <link rel="stylesheet" href="./static/pure-min.css">
-    <link rel="stylesheet" href="./static/styles.css">
-    <meta http-equiv="refresh" content="60; url={{.BaseUrl}}uni?user={{.User}}&refresh=1">
+    <link rel="stylesheet" href="{{.BaseUrl}}static/pure-min.css">
+    <link rel="stylesheet" href="{{.BaseUrl}}static/styles.css">
+    <meta http-equiv="refresh" content="60; url={{.BaseUrl}}?user={{.User}}&refresh=1">
     <meta name="viewport" content="width=device-width, user-scalable=no">
   </head>
   <body>
@@ -13,16 +13,16 @@
     <p><b>Ingen bruker valgt!</b> Vennligst velg én av alternativene nedenfor:</p>
     <ul>
     {{range .Users}}
-      <li><a href="{{$base}}uni?user={{.Name}}">{{.Name}}</a><br /></li>
+      <li><a href="{{$base}}?user={{.Name}}">{{.Name}}</a><br /></li>
     {{end}}
     </ul>
   {{else}}
   <div class="home-menu pure-menu pure-menu-open pure-menu-fixed pure-menu-horizontal">
-    <a class="pure-menu-heading" href="{{$base}}uni?user={{.User}}&refresh=1">teve</a>
+    <a class="pure-menu-heading" href="{{$base}}?user={{.User}}&refresh=1">teve</a>
     <ul>
       {{if .Running}}
       <li><span>Spiller <b>{{.CurrentChannel}}</b></span></li>
-      <li><a href="{{$base}}uni?user={{.User}}&kchannel=1" class="pure-button button-red">Stopp</a></li>
+      <li><a href="{{$base}}?user={{.User}}&kchannel=1" class="pure-button button-red">Stopp</a></li>
       <li><a href="#" class="pure-button button-lblue">{{.Viewers}} seere</a></li>
       {{end}}
       <li><a class="pure-button button-green" href="{{$base}}archive">Gå til arkiv</a></li>
@@ -70,9 +70,9 @@
       {{$transcoding := .Transcoding}}
       {{range .Channels}}
         <div class="channel">
-          <a href="{{$base}}uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}"><b>{{.Name}}</b></a>
+          <a href="{{$base}}?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}"><b>{{.Name}}</b></a>
           <a
-            href="{{$base}}uni?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Spill av</a>
+            href="{{$base}}?user={{$user}}&channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Spill av</a>
         </div>
         {{if not .EPGlist}}
         <p>Ingen EPG-data funnet for denne kanalen</p>
