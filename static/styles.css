@@ -12,6 +12,7 @@ body {
   color: white;
   font-weight: 400;
   font-size: 120%;
+  float: left;
 }
 .home-menu ul {
   float:right;
