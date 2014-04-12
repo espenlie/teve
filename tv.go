@@ -39,7 +39,6 @@ type User struct {
 
 type Config struct {
 	Channels         []Channel
-	Users            []User
 	Hostname         string
 	HttpUser         string
 	HttpPass         string
@@ -229,12 +228,18 @@ func killStream(cmd *exec.Cmd) error {
 
 func getUser(r *http.Request) (User, error) {
 	username := r.Header.Get("X-Remote-User")
-	for _, user := range config.Users {
-		if user.Name == username {
-			return user, nil
+	f, err := ioutil.ReadFile(".htpasswd")
+	if (err != nil) { return User{}, err }
+	lines := strings.Split(string(f), "\n")
+	for id, line := range lines[0:len(lines)-1] {
+		s := strings.SplitN(line, ":", 2)
+		strId := string(id)
+		if username == s[0] {
+			if (len(strId) == 1) { strId = fmt.Sprintf("0%v", strId) }
+			return User{Name: username, Id: strId}, nil
 		}
 	}
-	return User{}, errors.New("Did not find user '" + username + "' authenticated from Basic Auth. Does your htpasswd file match accounts in config.json?")
+	return User{}, errors.New("Did not find user '" + username + "' authenticated from Basic Auth.")
 }
 
 func getChannel(channel_name string) (Channel, error) {

@@ -30,12 +30,6 @@
 
   "WebPort": "696969",
 
-  "Users": [
-    { "Name": "user1", "Id": "01" },
-    { "Name": "user2", "Id": "02" },
-    { "Name": "user3", "Id": "03" }
-  ],
-
   "RecordingsFolder": "recordings",
 
   "DBHost" : "lokalhark",
