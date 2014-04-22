@@ -82,6 +82,7 @@ var config Config
 
 var streams = make(map[string]Command)
 var recordings = make(map[int64]Recording)
+var externalStream Channel
 
 func loadConfig(filename string) Config {
 	file, err := ioutil.ReadFile(filename)
@@ -95,11 +96,19 @@ func loadConfig(filename string) Config {
 	return config
 }
 
+func logMessage(level, msg string, err error) {
+	e := ""
+	if err != nil {
+		e = ": " + err.Error()
+	}
+	fmt.Printf("[%v] %v%v\n", strings.ToUpper(level), msg, e)
+}
+
 func loadPlannedRecordings() {
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
 	if err != nil {
-		fmt.Printf("Problems with recording db: %v\n", err.Error())
+		logMessage("warn", "Cant connect to the PostgreSQL-DB at "+config.DBHost, err)
 		return
 	}
 	long_form := "2006-01-02 15:04"
@@ -107,7 +116,7 @@ func loadPlannedRecordings() {
 	// First delete those that have finished since last time.
 	rows, err := dbh.Query("SELECT id FROM recordings WHERE stop < now()")
 	if err != nil {
-		fmt.Printf("Query failed: %v\n", err.Error())
+		logMessage("warn", "Getting old finished recordings failed", err)
 		return
 	}
 	for rows.Next() {
@@ -118,7 +127,7 @@ func loadPlannedRecordings() {
 
 	rows, err = dbh.Query("SELECT start,stop,username,title,channel,transcode FROM recordings")
 	if err != nil {
-		fmt.Printf("Query failed: %v\n", err.Error())
+		logMessage("warn", "Getting future recordings failed", err)
 		return
 	}
 	cnt := 0
@@ -129,7 +138,7 @@ func loadPlannedRecordings() {
 		go startRecording(start.Format(long_form), stop.Format(long_form), username, title, channel, transcode)
 		cnt += 1
 	}
-	fmt.Printf("Loaded %d recordings from DB.\n", cnt)
+	logMessage("info", fmt.Sprintf("Loaded %d recordings from DB", cnt), nil)
 }
 
 func insertRecording(username, title, channel, transcode string, start, stop time.Time) (int64, error) {
@@ -169,7 +178,7 @@ func removeRecording(id int64) {
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
 	if err != nil {
-		fmt.Printf("Problems with recordings db: %v\n", err.Error())
+		logMessage("warn", "Could not connect to recordings-db", err)
 		return
 	}
 	tx, _ := dbh.Begin()
@@ -230,6 +239,7 @@ func killStream(cmd *exec.Cmd) error {
 func getUser(r *http.Request) (User, error) {
 	if config.Debug {
 		// In debug-mode we don't have Basic Auth, and thus return a placeholder user.
+		logMessage("debug", "Defaulting to default user knuta, as we are in debug mode", nil)
 		return User{Name: "knuta", Id: "01"}, nil
 	}
 
@@ -265,7 +275,7 @@ func getEpgData(numEpg int) {
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
 	if err != nil {
-		fmt.Printf("Problems with EPG db" + err.Error())
+		logMessage("error", "Could not connect to EPG-db", err)
 		return
 	}
 	for i, channel := range config.Channels {
@@ -276,7 +286,7 @@ func getEpgData(numEpg int) {
                             AND stop > now()
                             LIMIT $2`, channel.Name, numEpg)
 		if err != nil {
-			fmt.Printf("Problems with query: " + err.Error())
+			logMessage("warn", "Could not fetch EPG-data from DB", err)
 			return
 		}
 		for rows.Next() {
@@ -332,7 +342,7 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	}
 
 	if duration < 0 {
-		fmt.Println("Failed due to negative duration.")
+		logMessage("error", "Starting recording failed due to negative duration", err)
 		return
 	}
 
@@ -341,12 +351,14 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	filename := fmt.Sprintf("%v/%v-%v-%v.mkv", config.RecordingsFolder, time.Now().Format(file_layout), programme_title, username)
 	id, err := insertRecording(username, title, channel, transcode, start, stop)
 	if err != nil {
-		fmt.Printf("Could not insert: %v\n", err.Error())
+		logMessage("error", "Could not insert recording", err)
 		return
 	}
+
+	// Get the channel for this recording
 	ch, err := getChannel(channel)
 	if err != nil {
-		fmt.Println(err.Error())
+		logMessage("error", "Could not get channel in order to start recording", err)
 		return
 	}
 	command := getVLCstr(0, ch.Address, filename, "file")
@@ -403,7 +415,7 @@ func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
 func startVlcHandler(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("vlc.html")
 	if err != nil {
-		fmt.Fprintf(w, "Could not parse template file: "+err.Error())
+		logMessage("error", "Could not parse template file for VLC-player", err)
 		return
 	}
 	d := make(map[string]interface{})
@@ -423,14 +435,14 @@ func deleteRecording(name string) error {
 func archivePageHandler(w http.ResponseWriter, r *http.Request) {
 	t, err := template.ParseFiles("archive.html")
 	if err != nil {
-		fmt.Fprintf(w, "Could not parse template file: "+err.Error())
+		logMessage("error", "Could not parse template file for archive", err)
 		return
 	}
 	deleteform := r.FormValue("delete")
 	if deleteform != "" {
 		err := deleteRecording(deleteform)
 		if err != nil {
-			fmt.Fprintf(w, "Could not delete recording: "+err.Error())
+			logMessage("error", "Could not delete recording", err)
 			return
 		}
 		base_url := fmt.Sprintf("%varchive", config.BaseUrl)
@@ -448,10 +460,26 @@ func archivePageHandler(w http.ResponseWriter, r *http.Request) {
 	d["Files"] = fs
 	d["BaseUrl"] = config.BaseUrl
 	if err != nil {
-		fmt.Fprintf(w, "Could not list archive: "+err.Error())
+		logMessage("error", "Could not list archive", err)
 		return
 	}
 	t.Execute(w, d)
+}
+
+func startChannel(ch Channel, u User, transcoding int) error {
+	// First kill current running channel, if any.
+	err := killUniStream(u)
+	if err != nil {
+		return err
+	}
+
+	// And start the new specified channel.
+	err = startUniStream(ch, u, transcoding)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func uniPageHandler(w http.ResponseWriter, r *http.Request) {
@@ -459,25 +487,25 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	d := make(map[string]interface{})
 	t, err := template.ParseFiles("unistream.html")
 	if err != nil {
-		fmt.Fprintf(w, "Could not parse template file: "+err.Error())
+		logMessage("error", "Could not parse template file", err)
 		return
 	}
 
 	// Ensure user that has logged in, is in the system.
 	user, err := getUser(r)
 	if err != nil {
-		fmt.Printf("Authentication problem: %v\n", err)
+		logMessage("error", "Authentication problem", err)
 		return
 	}
 
+	// Check if we already are playing a channel.
 	currentChannel := "-"
-
-	transcoding := 0
 	if _, ok := streams[user.Name]; ok {
 		currentChannel = streams[user.Name].Name
 	}
 
 	// Check if we want to transcode the stream.
+	transcoding := 0
 	form_transcoding := r.FormValue("transcoding")
 	if form_transcoding != "0" {
 		transcoding, err = strconv.Atoi(form_transcoding)
@@ -486,8 +514,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Check if we actually want to kill and start a new stream, or just want to
-	// refresh.
+	// Check if we want to refresh stream (change it)
 	refresh := false
 	form_refresh := r.FormValue("refresh")
 	if form_refresh == "1" {
@@ -505,28 +532,20 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	getEpgData(numEpg)
 
-	index := r.FormValue("channel")
-	if index != "" && !refresh {
-		// Change the current channel
-		// First, get channel.
-		channel, err := getChannel(index)
+	// If '&channel' is passed, it means we want to change/start a stream.
+	channelName := r.FormValue("channel")
+	if channelName != "" && refresh {
+		// First, get channel struct we want to change to.
+		channel, err := getChannel(channelName)
 		if err != nil {
-			fmt.Fprintf(w, "Could not switch channel: "+err.Error())
+			logMessage("error", "Could not get channel", err)
 			return
 		}
 
-		// Then kill current running channel, if any.
-		err = killUniStream(user)
+		// Then kill existing stream and start the one chosen.
+		err = startChannel(channel, user, transcoding)
 		if err != nil {
-			fmt.Fprintf(w, "Could not kill stream: "+err.Error())
-			return
-		}
-
-		// And start the new specified channel.
-		err = startUniStream(channel, user, transcoding)
-		if err != nil {
-			fmt.Fprintf(w, "Could not start stream: "+err.Error())
-			return
+			logMessage("error", "Could not change channel", err)
 		}
 		currentChannel = channel.Name
 	}
@@ -535,7 +554,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	if kill_index != "" {
 		err := killUniStream(user)
 		if err != nil {
-			fmt.Fprintf(w, "Could not kill stream: "+err.Error())
+			logMessage("error", "Could not kill stream", err)
 			return
 		}
 		http.Redirect(w, r, config.BaseUrl, 302)
@@ -592,10 +611,10 @@ func main() {
 	http.Handle("/"+config.RecordingsFolder+"/", http.FileServer(http.Dir("")))
 
 	if config.Debug {
-		fmt.Println("Serverer nettsiden på http://localhost:" + config.WebPort)
+		logMessage("debug", "Serverer nettsiden på http://localhost:"+config.WebPort, nil)
 	}
 	err := http.ListenAndServe(":"+config.WebPort, nil)
 	if err != nil {
-		fmt.Println("Problemer med å serve content: ", err)
+		logMessage("error", "Problemer med å serve content", err)
 	}
 }
