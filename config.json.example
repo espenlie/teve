@@ -21,19 +21,19 @@
       {"Name" : "CNN International",     "Address": "udp://@239.1.1.28:1234"}
   ],
 
-  "Hostname": "mycomputer.sexy",
+  "Hostname": "foobar.no",
   "BaseUrl" : "/",
 
-  "StreamingPort": "6969",
+  "StreamingPort": "1200",
 
-  "WebPort": "696969",
+  "WebPort": "8000",
   
   "Debug": false,
 
   "RecordingsFolder": "recordings",
 
-  "DBHost" : "lokalhark",
-  "DBName" : "dbname",
-  "DBUser" : "dbuser",
+  "DBHost" : "localhost",
+  "DBName" : "epg",
+  "DBUser" : "epguser",
   "DBPass" : "123secret"
 }
