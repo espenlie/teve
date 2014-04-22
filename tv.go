@@ -441,7 +441,7 @@ func archivePageHandler(w http.ResponseWriter, r *http.Request) {
 	fs := make([]File, 0)
 	baseurl := fmt.Sprintf("http://%v%vvlc?url=", config.Hostname, config.BaseUrl)
 	for _, file := range recordings {
-		fileurl := fmt.Sprintf("%vhttp://%v:%v@%v%vrecordings/%v", baseurl, config.HttpUser, config.HttpPass, config.Hostname, config.BaseUrl, file.Name())
+		fileurl := fmt.Sprintf("%vhttp://%v%vrecordings/%v", baseurl, config.Hostname, config.BaseUrl, file.Name())
 		streamurl := fmt.Sprintf("http://%v%vrecordings/%v", config.Hostname, config.BaseUrl, file.Name())
 		fs = append(fs, File{Name: file.Name(), Size: (file.Size() / 1000000), Url: fileurl, SUrl: streamurl})
 	}
