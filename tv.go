@@ -262,7 +262,7 @@ func getUser(r *http.Request) (User, error) {
 	lines := strings.Split(string(f), "\n")
 	for id, line := range lines[0 : len(lines)-1] {
 		s := strings.SplitN(line, ":", 2)
-		strId := string(id)
+		strId := strconv.Itoa(id)
 		if username == s[0] {
 			if len(strId) == 1 {
 				strId = fmt.Sprintf("0%v", strId)
