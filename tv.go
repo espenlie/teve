@@ -539,9 +539,9 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if we already are playing a channel.
-	currentChannel := "-"
+	currentChannel := Channel{Name: "-"}
 	if _, ok := streams[user.Name]; ok {
-		currentChannel = streams[user.Name].Name
+		currentChannel, _ = getChannel(streams[user.Name].Name)
 	}
 
 	// Check if we want to transcode the stream.
@@ -580,7 +580,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logMessage("error", "Could not change channel", err)
 		}
-		currentChannel = channel.Name
+		currentChannel = channel
 	}
 
 	kill_index := r.FormValue("kchannel")
@@ -599,10 +599,11 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	d["Channels"] = config.Channels
 	d["BaseUrl"] = config.BaseUrl
 	d["User"] = user.Name
-	d["CurrentChannel"] = currentChannel
+	d["CurrentChannel"] = currentChannel.Name
+	d["CurrentAddress"] = currentChannel.Address
 	d["Transcoding"] = streams[user.Name].Transcode
 	d["URL"] = fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
-	if currentChannel != "-" {
+	if currentChannel.Name != "-" {
 		d["Running"] = true
 	} else {
 		d["Running"] = false
