@@ -57,6 +57,7 @@ type Command struct {
 	Name      string
 	Cmd       *exec.Cmd
 	Transcode int
+	Address   string
 }
 
 type EPG struct {
@@ -226,7 +227,12 @@ func startUniStream(channel Channel, user User, transcoding int) error {
 	if err != nil {
 		return err
 	}
-	streams[user.Name] = Command{Name: channel.Name, Cmd: cmd, Transcode: transcoding}
+	streams[user.Name] = Command{
+		Name:      channel.Name,
+		Cmd:       cmd,
+		Transcode: transcoding,
+		Address:   channel.Address,
+	}
 	return nil
 }
 
@@ -539,9 +545,9 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if we already are playing a channel.
-	currentChannel := Channel{Name: "-"}
+	currentChannel := "-"
 	if _, ok := streams[user.Name]; ok {
-		currentChannel, _ = getChannel(streams[user.Name].Name)
+		currentChannel = streams[user.Name].Name
 	}
 
 	// Check if we want to transcode the stream.
@@ -580,7 +586,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			logMessage("error", "Could not change channel", err)
 		}
-		currentChannel = channel
+		currentChannel = channel.Name
 	}
 
 	kill_index := r.FormValue("kchannel")
@@ -599,11 +605,11 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	d["Channels"] = config.Channels
 	d["BaseUrl"] = config.BaseUrl
 	d["User"] = user.Name
-	d["CurrentChannel"] = currentChannel.Name
-	d["CurrentAddress"] = currentChannel.Address
+	d["CurrentChannel"] = currentChannel
+	d["CurrentAddress"] = streams[user.Name].Address
 	d["Transcoding"] = streams[user.Name].Transcode
 	d["URL"] = fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
-	if currentChannel.Name != "-" {
+	if currentChannel != "-" {
 		d["Running"] = true
 	} else {
 		d["Running"] = false
