@@ -29,6 +29,8 @@
   "StreamingPort": "6969",
 
   "WebPort": "696969",
+  
+  "Debug": false,
 
   "RecordingsFolder": "recordings",
 

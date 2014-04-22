@@ -50,6 +50,7 @@ type Config struct {
 	DBName           string
 	DBUser           string
 	DBPass           string
+	Debug            bool
 }
 
 type Command struct {
@@ -227,15 +228,24 @@ func killStream(cmd *exec.Cmd) error {
 }
 
 func getUser(r *http.Request) (User, error) {
+	if config.Debug {
+		// In debug-mode we don't have Basic Auth, and thus return a placeholder user.
+		return User{Name: "knuta", Id: "01"}, nil
+	}
+
 	username := r.Header.Get("X-Remote-User")
 	f, err := ioutil.ReadFile(".htpasswd")
-	if (err != nil) { return User{}, err }
+	if err != nil {
+		return User{}, err
+	}
 	lines := strings.Split(string(f), "\n")
-	for id, line := range lines[0:len(lines)-1] {
+	for id, line := range lines[0 : len(lines)-1] {
 		s := strings.SplitN(line, ":", 2)
 		strId := string(id)
 		if username == s[0] {
-			if (len(strId) == 1) { strId = fmt.Sprintf("0%v", strId) }
+			if len(strId) == 1 {
+				strId = fmt.Sprintf("0%v", strId)
+			}
 			return User{Name: username, Id: strId}, nil
 		}
 	}
@@ -566,16 +576,26 @@ func main() {
 
 	// The server has (re)started, so we load in the planned recordings.
 	loadPlannedRecordings()
+
+	// Defining our paths
 	http.HandleFunc("/", uniPageHandler)
 	http.HandleFunc("/record", startRecordingHandler)
 	http.HandleFunc("/stopRecording", stopRecordingHandler)
 	http.HandleFunc("/vlc", startVlcHandler)
 	http.HandleFunc("/archive", archivePageHandler)
+
+	// Hack in order to serve the favicon without web-server
 	serveSingle("/favicon.ico", "./static/favicon.ico")
+
+	// Static content, including video-files of old recordings.
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 	http.Handle("/"+config.RecordingsFolder+"/", http.FileServer(http.Dir("")))
+
+	if config.Debug {
+		fmt.Println("Serverer nettsiden på http://localhost:" + config.WebPort)
+	}
 	err := http.ListenAndServe(":"+config.WebPort, nil)
-    if (err != nil) {
+	if err != nil {
 		fmt.Println("Problemer med å serve content: ", err)
-    }
+	}
 }
