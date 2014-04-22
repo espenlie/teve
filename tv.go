@@ -82,7 +82,6 @@ var config Config
 
 var streams = make(map[string]Command)
 var recordings = make(map[int64]Recording)
-var externalStream Channel
 
 func loadConfig(filename string) Config {
 	file, err := ioutil.ReadFile(filename)
@@ -102,6 +101,18 @@ func logMessage(level, msg string, err error) {
 		e = ": " + err.Error()
 	}
 	fmt.Printf("[%v] %v%v\n", strings.ToUpper(level), msg, e)
+}
+
+func getTranscoding(trans string) int {
+	var err error
+	transcoding := 0
+	if trans != "0" {
+		transcoding, err = strconv.Atoi(trans)
+		if err != nil {
+			transcoding = 0
+		}
+	}
+	return transcoding
 }
 
 func loadPlannedRecordings() {
@@ -482,6 +493,35 @@ func startChannel(ch Channel, u User, transcoding int) error {
 	return nil
 }
 
+func startExternalStream(w http.ResponseWriter, r *http.Request) {
+	user, err := getUser(r)
+	if err != nil {
+		logMessage("error", "Authentication problem", err)
+		http.Redirect(w, r, config.BaseUrl, 302)
+	}
+
+	// Construct a custom channel, for this purpose
+	n := r.FormValue("name")
+	if n == "" {
+		n = "Egendefinert kanal"
+	}
+
+	// Get the transcoding, defaulting to 0.
+	transcoding := getTranscoding(r.FormValue("transcoding"))
+
+	s := Channel{
+		Name:    n,
+		Address: r.FormValue("url"),
+	}
+
+	err = startChannel(s, user, transcoding)
+	if err != nil {
+		logMessage("error", "Could not start external stream", err)
+	}
+
+	http.Redirect(w, r, config.BaseUrl, 302)
+}
+
 func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	// Show running channel and list of channels.
 	d := make(map[string]interface{})
@@ -505,14 +545,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if we want to transcode the stream.
-	transcoding := 0
-	form_transcoding := r.FormValue("transcoding")
-	if form_transcoding != "0" {
-		transcoding, err = strconv.Atoi(form_transcoding)
-		if err != nil {
-			transcoding = 0
-		}
-	}
+	transcoding := getTranscoding(r.FormValue("transcoding"))
 
 	// Check if we want to refresh stream (change it)
 	refresh := false
@@ -598,6 +631,7 @@ func main() {
 
 	// Defining our paths
 	http.HandleFunc("/", uniPageHandler)
+	http.HandleFunc("/external", startExternalStream)
 	http.HandleFunc("/record", startRecordingHandler)
 	http.HandleFunc("/stopRecording", stopRecordingHandler)
 	http.HandleFunc("/vlc", startVlcHandler)
