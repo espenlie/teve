@@ -419,10 +419,8 @@ func startRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) 
 	transcode := r.FormValue("transcode")
 	user, _ := getUser(r)
 
-	//url := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
 	go startRecording(start, stop, user.Name, title, channel, transcode)
-	base_url := fmt.Sprintf("%vuri?&refresh=1", config.BaseUrl)
-	http.Redirect(w, &r.Request, base_url, 302)
+	http.Redirect(w, &r.Request, config.BaseUrl, 302)
 }
 
 func startVlcHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
