@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	auth "github.com/abbot/go-http-auth"
 	_ "github.com/lib/pq"
 	"html/template"
 	"io/ioutil"
@@ -46,6 +47,7 @@ type Config struct {
 	StreamingPort    string
 	WebPort          string
 	RecordingsFolder string
+	PasswordFile     string
 	DBHost           string
 	DBName           string
 	DBUser           string
@@ -253,14 +255,8 @@ func killStream(cmd *exec.Cmd) error {
 	return nil
 }
 
-func getUser(r *http.Request) (User, error) {
-	if config.Debug {
-		// In debug-mode we don't have Basic Auth, and thus return a placeholder user.
-		logMessage("debug", "Defaulting to default user knuta, as we are in debug mode", nil)
-		return User{Name: "knuta", Id: "01"}, nil
-	}
-
-	username := r.Header.Get("X-Remote-User")
+func getUser(r *auth.AuthenticatedRequest) (User, error) {
+	username := r.Username
 	f, err := ioutil.ReadFile(".htpasswd")
 	if err != nil {
 		return User{}, err
@@ -324,14 +320,14 @@ func getEpgData(numEpg int) {
 	}
 }
 
-func stopRecordingHandler(w http.ResponseWriter, r *http.Request) {
+func stopRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	id, _ := strconv.Atoi(r.FormValue("id"))
 	removeRecording(int64(id))
 	if _, ok := recordings[int64(id)]; ok {
 		_ = killStream(recordings[int64(id)].Cmd)
 	}
 	base_url := fmt.Sprintf("%v?refresh=1", config.BaseUrl)
-	http.Redirect(w, r, base_url, 302)
+	http.Redirect(w, &r.Request, base_url, 302)
 }
 
 func startRecording(sstart, sstop, username, title, channel, transcode string) {
@@ -415,7 +411,7 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	removeRecording(id)
 }
 
-func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
+func startRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	start := r.FormValue("start")
 	stop := r.FormValue("stop")
 	title := r.FormValue("title")
@@ -426,10 +422,10 @@ func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
 	//url := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
 	go startRecording(start, stop, user.Name, title, channel, transcode)
 	base_url := fmt.Sprintf("%vuri?&refresh=1", config.BaseUrl)
-	http.Redirect(w, r, base_url, 302)
+	http.Redirect(w, &r.Request, base_url, 302)
 }
 
-func startVlcHandler(w http.ResponseWriter, r *http.Request) {
+func startVlcHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	t, err := template.ParseFiles("templates/vlc.html")
 	if err != nil {
 		logMessage("error", "Could not parse template file for VLC-player", err)
@@ -449,7 +445,7 @@ func deleteRecording(name string) error {
 	return nil
 }
 
-func archivePageHandler(w http.ResponseWriter, r *http.Request) {
+func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	t, err := template.ParseFiles("templates/archive.html")
 	if err != nil {
 		logMessage("error", "Could not parse template file for archive", err)
@@ -463,7 +459,7 @@ func archivePageHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		base_url := fmt.Sprintf("%varchive", config.BaseUrl)
-		http.Redirect(w, r, base_url, 302)
+		http.Redirect(w, &r.Request, base_url, 302)
 	}
 	d := make(map[string]interface{})
 	recordings, err := ioutil.ReadDir(config.RecordingsFolder)
@@ -499,11 +495,11 @@ func startChannel(ch Channel, u User, transcoding int) error {
 	return nil
 }
 
-func startExternalStream(w http.ResponseWriter, r *http.Request) {
+func startExternalStream(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	user, err := getUser(r)
 	if err != nil {
 		logMessage("error", "Authentication problem", err)
-		http.Redirect(w, r, config.BaseUrl, 302)
+		http.Redirect(w, &r.Request, config.BaseUrl, 302)
 	}
 
 	// Construct a custom channel, for this purpose
@@ -525,10 +521,10 @@ func startExternalStream(w http.ResponseWriter, r *http.Request) {
 		logMessage("error", "Could not start external stream", err)
 	}
 
-	http.Redirect(w, r, config.BaseUrl, 302)
+	http.Redirect(w, &r.Request, config.BaseUrl, 302)
 }
 
-func uniPageHandler(w http.ResponseWriter, r *http.Request) {
+func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Show running channel and list of channels.
 	d := make(map[string]interface{})
 	t, err := template.ParseFiles("templates/index.html")
@@ -596,7 +592,7 @@ func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 			logMessage("error", "Could not kill stream", err)
 			return
 		}
-		http.Redirect(w, r, config.BaseUrl, 302)
+		http.Redirect(w, &r.Request, config.BaseUrl, 302)
 	}
 	// Get the recordings for this user.
 	d["Recordings"] = recordings
@@ -637,12 +633,14 @@ func main() {
 	loadPlannedRecordings()
 
 	// Defining our paths
-	http.HandleFunc("/", uniPageHandler)
-	http.HandleFunc("/external", startExternalStream)
-	http.HandleFunc("/record", startRecordingHandler)
-	http.HandleFunc("/stopRecording", stopRecordingHandler)
-	http.HandleFunc("/vlc", startVlcHandler)
-	http.HandleFunc("/archive", archivePageHandler)
+	secrets := auth.HtpasswdFileProvider(config.PasswordFile)
+	authenticator := auth.NewBasicAuthenticator(config.Hostname, secrets)
+	http.HandleFunc("/", authenticator.Wrap(uniPageHandler))
+	http.HandleFunc("/external", authenticator.Wrap(startExternalStream))
+	http.HandleFunc("/record", authenticator.Wrap(startRecordingHandler))
+	http.HandleFunc("/stopRecording", authenticator.Wrap(stopRecordingHandler))
+	http.HandleFunc("/vlc", authenticator.Wrap(startVlcHandler))
+	http.HandleFunc("/archive", authenticator.Wrap(archivePageHandler))
 
 	// Hack in order to serve the favicon without web-server
 	serveSingle("/favicon.ico", "./static/favicon.ico")

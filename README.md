@@ -59,13 +59,6 @@ To get started, you may find it simplest to just start a virtualenv:
         access_log /var/log/nginx/fgdn.access.log;
         error_log /var/log/nginx/fqdn.error.log;
         location /tv/ {
-            auth_basic "Restricted";
-            auth_basic_user_file /srv/teve/.htpasswd;
-
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $remote_addr;
-            proxy_set_header Host $host;
-            proxy_set_header X-Remote-User $remote_user;
             proxy_connect_timeout 5;
             proxy_pass http://localhost:12000/;
         } 
@@ -86,6 +79,7 @@ Python:
 Golang:
 
 - [pq](http://godoc.org/github.com/lib/pq)
+- [go-http-auth](https://github.com/abbot/go-http-auth/)
 
 Unix:
 

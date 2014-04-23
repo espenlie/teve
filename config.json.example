@@ -27,7 +27,8 @@
   "StreamingPort": "1200",
 
   "WebPort": "8000",
-  
+
+  "PasswordFile": ".htpasswd",
   "Debug": false,
 
   "RecordingsFolder": "recordings",
