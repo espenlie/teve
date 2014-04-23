@@ -430,7 +430,7 @@ func startRecordingHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func startVlcHandler(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles("vlc.html")
+	t, err := template.ParseFiles("templates/vlc.html")
 	if err != nil {
 		logMessage("error", "Could not parse template file for VLC-player", err)
 		return
@@ -450,7 +450,7 @@ func deleteRecording(name string) error {
 }
 
 func archivePageHandler(w http.ResponseWriter, r *http.Request) {
-	t, err := template.ParseFiles("archive.html")
+	t, err := template.ParseFiles("templates/archive.html")
 	if err != nil {
 		logMessage("error", "Could not parse template file for archive", err)
 		return
@@ -531,7 +531,7 @@ func startExternalStream(w http.ResponseWriter, r *http.Request) {
 func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	// Show running channel and list of channels.
 	d := make(map[string]interface{})
-	t, err := template.ParseFiles("index.html")
+	t, err := template.ParseFiles("templates/index.html")
 	if err != nil {
 		logMessage("error", "Could not parse template file", err)
 		return
