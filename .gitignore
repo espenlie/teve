@@ -3,5 +3,5 @@ venv/
 *.db
 config.json
 teve
-recordings/
+recordings
 .htpasswd
