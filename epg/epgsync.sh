@@ -1,3 +1,4 @@
 #!/bin/bash
-psql -f db.sql -d epg
-./epgfetch.py
+BASEDIR=$(dirname $0)
+psql -f $BASEDIR/db.sql -d epg
+python $BASEDIR/epgfetch.py $BASEDIR/../config.json 1

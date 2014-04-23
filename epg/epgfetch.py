@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from lxml import objectify
+import json
 import urllib2
 import time
 from datetime import datetime, timedelta
@@ -10,11 +11,23 @@ import psycopg2
 import sys
 
 def main():
+    # Parse the config file.
+    if len(sys.argv) < 2:
+      print "No config file specified. Exiting."
+      sys.exit(1)
+    config = json.load(open(sys.argv[1]))
+
+    # Get the number of days to fetch EPG-data for in argv 2.
+    days = 1
+    if len(sys.argv) == 3:
+      days = int(sys.argv[2])
+
     channels = [
             { 'epg': 'aljazeera.net', 'ui': 'Al Jazeera Intl'},
             { 'epg': 'nrk1.nrk.no',   'ui': 'NRK1 HD'},
             { 'epg': 'nrk1.nrk.no',   'ui': 'NRK1 Midtnytt'},
             { 'epg': 'nrk2.nrk.no',   'ui': 'NRK2'},
+            { 'epg': 'nrk3.nrk.no',   'ui': 'NRK3 HD'},
             { 'epg': 'no.bbchd.no',   'ui': 'BBC World News'},
             { 'epg': 'film.tv2.no',   'ui': 'TV2 Film'},
             { 'epg': 'bliss.tv2.no',  'ui': 'TV2 Bliss'},
@@ -33,8 +46,8 @@ def main():
             { 'epg': 'cnn.com',       'ui': 'CNN International'},
     ]
     base = "http://xmltv.xmltv.se"
-    dates = [datetime.today() + timedelta(days=i) for i in range(0,8)] 
-    conn = psycopg2.connect("host=localhost dbname=epg user=epguser password=epg123")
+    dates = [datetime.today() + timedelta(days=i) for i in range(0,days)]
+    conn = psycopg2.connect("host=%s dbname=%s user=%s password=%s" % (config["DBHost"], config["DBName"], config["DBUser"], config["DBPass"]))
     cur = conn.cursor()
 
     for date in dates:
@@ -52,7 +65,8 @@ def main():
                 stop = parser.parse(programme.attrib["stop"]).isoformat()
                 title = unicode(programme["title"])
                 ch = channel["ui"]
-                cur.execute("INSERT INTO epg(start,stop,title,channel) VALUES(%s,%s,%s,%s)", (start,stop,title,ch))
+                stmt = "INSERT INTO %s(start,stop,title,channel) " % (config["DBName"])
+                cur.execute(stmt + "VALUES(%s,%s,%s,%s)",(start,stop,title,ch))
     conn.commit()
     cur.close()
     conn.close()
