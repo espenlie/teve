@@ -205,10 +205,10 @@ func removeRecording(id int64) {
 	delete(recordings, id)
 }
 
-func getVLCstr(transcoding int, channel, dst, access string) string {
+func getVLCstr(transcoding int, address, dst, access string) string {
 	transcoding_opts := fmt.Sprintf("#transcode{vcodec=mp2v,vb=%v,acodec=aac,ab=128,scale=0.7,threads=2}:", transcoding)
 	output := fmt.Sprintf("std{access=%v,mux=ts,dst=%v}'", access, dst)
-	command := fmt.Sprintf("cvlc %v --sout '", channel)
+	command := fmt.Sprintf("cvlc '%v' --sout '", address)
 
 	if transcoding != 0 {
 		command += transcoding_opts
