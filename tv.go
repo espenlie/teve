@@ -592,10 +592,17 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		}
 		http.Redirect(w, &r.Request, config.BaseUrl, 302)
 	}
+
+	// Get number of viewers on current channel
+	currentViewers := ""
+	if _, ok := streams[user.Name]; ok {
+		currentViewers = countStream(streams[user.Name].Cmd.Process.Pid, user.Id)
+	}
+
 	// Get the recordings for this user.
 	d["Recordings"] = recordings
 	d["RecordingsFolder"] = config.RecordingsFolder
-	d["Viewers"] = countStream()
+	d["Viewers"] = currentViewers
 	d["Channels"] = config.Channels
 	d["BaseUrl"] = config.BaseUrl
 	d["User"] = user.Name
@@ -611,11 +618,11 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	t.Execute(w, d)
 }
 
-func countStream() string {
-	oneliner := exec.Command("bash", "-c", "netstat | grep :"+config.StreamingPort+"| grep ESTABLISHED | wc -l")
+func countStream(pid int, userid string) string {
+	cmd := fmt.Sprintf("lsof -a -t -p %d -i tcp:%v%v | wc -l", pid, config.StreamingPort, userid)
+	oneliner := exec.Command("bash", "-c", cmd)
 	out, _ := oneliner.Output()
-	streng := strings.TrimSpace(string(out))
-	return streng
+	return strings.TrimSpace(string(out))
 }
 
 func serveSingle(pattern string, filename string) {
