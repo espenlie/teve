@@ -531,7 +531,7 @@ func startExternalStream(w http.ResponseWriter, r *http.Request) {
 func uniPageHandler(w http.ResponseWriter, r *http.Request) {
 	// Show running channel and list of channels.
 	d := make(map[string]interface{})
-	t, err := template.ParseFiles("unistream.html")
+	t, err := template.ParseFiles("index.html")
 	if err != nil {
 		logMessage("error", "Could not parse template file", err)
 		return
