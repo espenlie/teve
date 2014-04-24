@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS recordings (
   unique(start,title,channel)
 );
 CREATE TABLE IF NOT EXISTS subscriptions (
+  id serial primary key,
   title text,
   interval_start smallint,
   interval_stop smallint,
@@ -27,3 +28,4 @@ GRANT ALL ON epg TO epguser;
 GRANT ALL ON recordings TO epguser;
 GRANT ALL ON recordings_id_seq TO epguser;
 GRANT ALL ON subscriptions TO epguser;
+GRANT ALL ON subscriptions_id_seq TO epguser;

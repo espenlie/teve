@@ -9,6 +9,7 @@ import (
 	_ "github.com/lib/pq"
 	"html/template"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -45,6 +46,7 @@ type Config struct {
 	HttpPass         string
 	BaseUrl          string
 	StreamingPort    string
+	SubIntervalSize  int
 	WebPort          string
 	RecordingsFolder string
 	PasswordFile     string
@@ -82,10 +84,10 @@ type Recording struct {
 }
 
 type Subscription struct {
-	Title         string
-	IntervalStart string
-	IntervalStop  string
-	Weekday       string
+	Id        int64
+	Title     string
+	StartTime string
+	Weekday   string
 }
 
 var config Config
@@ -494,6 +496,14 @@ func insertSubscription(title string, weekday string, interval []int, username s
 	return nil
 }
 
+func addHoursToInt(h int, d int) int {
+	// Calculate the time-interval
+	dur := time.Duration(time.Duration(math.Abs(float64(d))) * time.Hour)
+	// We use a base-time, in order to elegantly calculate e.g. 23:00 + 2 hours = 01:00.
+	baseTime := time.Date(1970, 1, 1, h, 0, 0, 0, time.UTC)
+	return baseTime.Add(dur).Hour()
+}
+
 func startSeriesSubscription(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Get parameters from form
 	title := r.FormValue("title")
@@ -503,11 +513,7 @@ func startSeriesSubscription(w http.ResponseWriter, r *auth.AuthenticatedRequest
 		logMessage("error", "Could not parse subscription time", err)
 	}
 
-	// Calculate the time-interval
-	d := time.Duration(2 * time.Hour)
-	// We use a base-time, in order to elegantly calculate e.g. 23:00 + 2 hours = 01:00.
-	baseTime := time.Date(1970, 1, 1, t, 0, 0, 0, time.UTC)
-	interval := []int{baseTime.Add(-d).Hour(), baseTime.Add(d).Hour()}
+	interval := []int{addHoursToInt(t, -config.SubIntervalSize), addHoursToInt(t, config.SubIntervalSize)}
 
 	// Insert the subscription
 	err = insertSubscription(title, weekday, interval, r.Username)
@@ -519,6 +525,47 @@ func startSeriesSubscription(w http.ResponseWriter, r *auth.AuthenticatedRequest
 	http.Redirect(w, &(r.Request), config.BaseUrl, 302)
 }
 
+func removeSubscriptionHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
+	// Parse GET-parameters
+	id, err := strconv.Atoi(r.FormValue("id"))
+	if err != nil {
+		logMessage("error", "Could not convert subscription id to int64", err)
+	}
+
+	// Delete the subscription
+	err = removeSubscription(r.Username, int64(id))
+	if err != nil {
+		logMessage("error", "Could not delete the subscription", err)
+	}
+
+	// Redirect to front-page.
+	http.Redirect(w, &(r.Request), config.BaseUrl, 302)
+}
+
+func removeSubscription(username string, id int64) error {
+	// Connect to the DB
+	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+	dbh, err := sql.Open("postgres", dboptions)
+	if err != nil {
+		return err
+	}
+
+	// Check that the username owns this recording.
+	dbh.QueryRow("SELECT * FROM subscriptions WHERE username = $1 AND id = $2", username, id)
+	if sql.ErrNoRows == nil {
+		return errors.New("A user tried to delete a subscription he/she did not own")
+	}
+
+	tx, _ := dbh.Begin()
+	_, err = tx.Exec("DELETE FROM subscriptions WHERE id = $1", id)
+	if err != nil {
+		return err
+	}
+	_ = tx.Commit()
+
+	return nil
+}
+
 func getSeriesSubscriptions(username string) ([]Subscription, error) {
 	// Connect to DB
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
@@ -528,7 +575,7 @@ func getSeriesSubscriptions(username string) ([]Subscription, error) {
 	}
 
 	// Get all subs for this user.
-	rows, err := dbh.Query("SELECT title, interval_start, interval_stop, weekday FROM subscriptions WHERE username = $1", username)
+	rows, err := dbh.Query("SELECT id, title, interval_start, interval_stop, weekday FROM subscriptions WHERE username = $1", username)
 	if err != nil {
 		logMessage("warn", "Getting titles failed", err)
 	}
@@ -536,16 +583,24 @@ func getSeriesSubscriptions(username string) ([]Subscription, error) {
 	var subs []Subscription
 	for rows.Next() {
 		var title, weekday string
-		var interval_start, interval_stop int
-		rows.Scan(&title, &interval_start, &interval_stop, &weekday)
+		var id, interval_start, interval_stop int
+		rows.Scan(&id, &title, &interval_start, &interval_stop, &weekday)
+
+		// Get the zero-padded starttime
+		stime := zeroPad(strconv.Itoa(addHoursToInt(interval_start, config.SubIntervalSize)))
+
+		// Gives more sense that something happens at 00, compared to 24.
+		if stime == "24" {
+			stime = "00"
+		}
 
 		// Translate the weekdays to Norwegian.
 		weekday_nor := getNorwegianWeekday(weekday)
 		subs = append(subs, Subscription{
-			Title:         title,
-			IntervalStart: zeroPad(strconv.Itoa(interval_start)),
-			IntervalStop:  zeroPad(strconv.Itoa(interval_stop)),
-			Weekday:       weekday_nor,
+			Id:        int64(id),
+			Title:     title,
+			StartTime: stime,
+			Weekday:   weekday_nor,
 		})
 	}
 
@@ -792,6 +847,7 @@ func main() {
 	http.HandleFunc("/archive", authenticator.Wrap(archivePageHandler))
 	http.HandleFunc("/series", authenticator.Wrap(seriesPageHandler))
 	http.HandleFunc("/startSubscription", authenticator.Wrap(startSeriesSubscription))
+	http.HandleFunc("/deleteSubscription", authenticator.Wrap(removeSubscriptionHandler))
 
 	// Hack in order to serve the favicon without web-server
 	serveSingle("/favicon.ico", "./static/favicon.ico")

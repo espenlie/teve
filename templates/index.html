@@ -77,7 +77,7 @@
     <h2 class="underlined">Dine abonnement</h2>
     <ul>
     {{range .Subscriptions}}
-    <li>{{.Title}} hver {{.Weekday}} mellom {{.IntervalStart}} og {{.IntervalStop}}</li>
+    <li>{{.Title}} hver {{.Weekday}} rundt {{.StartTime}} (<a href="./deleteSubscription?id={{.Id}}">Slett</a>)</li>
     {{end}}
     </ul>
     {{end}}
