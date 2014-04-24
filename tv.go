@@ -411,6 +411,7 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	removeRecording(id)
 }
 
+
 func startRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	start := r.FormValue("start")
 	stop := r.FormValue("stop")
@@ -441,6 +442,36 @@ func deleteRecording(name string) error {
 		return err
 	}
 	return nil
+}
+
+func seriesPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest){
+	t, err := template.ParseFiles("templates/series.html")
+	if err != nil {
+		logMessage("error", "Could not parse template file for archive", err)
+		return
+	}
+	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+	dbh, err := sql.Open("postgres", dboptions)
+	if err != nil {
+		logMessage("warn", "Cant connect to the PostgreSQL-DB at "+config.DBHost, err)
+		return
+	}
+	// Select all existing programs
+	rows, err := dbh.Query("SELECT DISTINCT title FROM epg")
+	if err != nil {
+		logMessage("warn", "Getting titles failed", err)
+		return
+	}
+	var programs []string
+	for rows.Next() {
+		var title string
+		_ = rows.Scan(&title)
+		programs = append(programs, title)
+	}
+	var times []string
+	d := make(map[string]interface{})
+	d["Programs"] = programs
+	t.Execute(w, d)
 }
 
 func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
@@ -646,6 +677,7 @@ func main() {
 	http.HandleFunc("/stopRecording", authenticator.Wrap(stopRecordingHandler))
 	http.HandleFunc("/vlc", authenticator.Wrap(startVlcHandler))
 	http.HandleFunc("/archive", authenticator.Wrap(archivePageHandler))
+	http.HandleFunc("/series", authenticator.Wrap(seriesPageHandler))
 
 	// Hack in order to serve the favicon without web-server
 	serveSingle("/favicon.ico", "./static/favicon.ico")
