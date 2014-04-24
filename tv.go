@@ -81,6 +81,13 @@ type Recording struct {
 	Cmd         *exec.Cmd
 }
 
+type Subscription struct {
+	Title         string
+	IntervalStart string
+	IntervalStop  string
+	Weekday       string
+}
+
 var config Config
 
 var streams = make(map[string]Command)
@@ -116,6 +123,23 @@ func getTranscoding(trans string) int {
 		}
 	}
 	return transcoding
+}
+
+func getNorwegianWeekday(eng string) string {
+	dict := map[string]string{
+		"monday":    "mandag",
+		"tuesday":   "tirsdag",
+		"wednesday": "onsdag",
+		"thursday":  "torsdag",
+		"friday":    "fredag",
+		"saturday":  "lørdag",
+		"sunday":    "søndag",
+	}
+
+	if _, ok := dict[eng]; !ok {
+		return "???"
+	}
+	return dict[eng]
 }
 
 func loadPlannedRecordings() {
@@ -255,6 +279,13 @@ func killStream(cmd *exec.Cmd) error {
 	return nil
 }
 
+func zeroPad(n string) string {
+	if len(n) == 1 {
+		return fmt.Sprintf("0%v", n)
+	}
+	return n
+}
+
 func getUser(r *auth.AuthenticatedRequest) (User, error) {
 	username := r.Username
 	f, err := ioutil.ReadFile(".htpasswd")
@@ -266,9 +297,7 @@ func getUser(r *auth.AuthenticatedRequest) (User, error) {
 		s := strings.SplitN(line, ":", 2)
 		strId := strconv.Itoa(id)
 		if username == s[0] {
-			if len(strId) == 1 {
-				strId = fmt.Sprintf("0%v", strId)
-			}
+			strId = zeroPad(strId)
 			return User{Name: username, Id: strId}, nil
 		}
 	}
@@ -326,7 +355,7 @@ func stopRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	if _, ok := recordings[int64(id)]; ok {
 		_ = killStream(recordings[int64(id)].Cmd)
 	}
-	base_url := fmt.Sprintf("%v?refresh=1", config.BaseUrl)
+	base_url := fmt.Sprintf("%v", config.BaseUrl)
 	http.Redirect(w, &r.Request, base_url, 302)
 }
 
@@ -411,7 +440,6 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	removeRecording(id)
 }
 
-
 func startRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	start := r.FormValue("start")
 	stop := r.FormValue("stop")
@@ -444,7 +472,87 @@ func deleteRecording(name string) error {
 	return nil
 }
 
-func seriesPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest){
+func insertSubscription(title string, weekday string, interval []int, username string) error {
+	// Connect to DB
+	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+	dbh, err := sql.Open("postgres", dboptions)
+	if err != nil {
+		return err
+	}
+
+	// Insert the subscription.
+	tx, err := dbh.Begin()
+	_, err = tx.Exec(`INSERT INTO subscriptions(
+	title,interval_start,interval_stop,weekday,username) VALUES
+	($1,$2,$3,$4,$5)`,
+		title, interval[0], interval[1], weekday, username)
+	if err != nil {
+		return err
+	}
+	tx.Commit()
+
+	return nil
+}
+
+func startSeriesSubscription(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
+	// Get parameters from form
+	title := r.FormValue("title")
+	weekday := r.FormValue("weekday")
+	t, err := strconv.Atoi(r.FormValue("time"))
+	if err != nil {
+		logMessage("error", "Could not parse subscription time", err)
+	}
+
+	// Calculate the time-interval
+	d := time.Duration(2 * time.Hour)
+	// We use a base-time, in order to elegantly calculate e.g. 23:00 + 2 hours = 01:00.
+	baseTime := time.Date(1970, 1, 1, t, 0, 0, 0, time.UTC)
+	interval := []int{baseTime.Add(-d).Hour(), baseTime.Add(d).Hour()}
+
+	// Insert the subscription
+	err = insertSubscription(title, weekday, interval, r.Username)
+	if err != nil {
+		logMessage("error", "Could not insert the subscription", err)
+	}
+
+	// Redirect to front-page.
+	http.Redirect(w, &(r.Request), config.BaseUrl, 302)
+}
+
+func getSeriesSubscriptions(username string) ([]Subscription, error) {
+	// Connect to DB
+	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+	dbh, err := sql.Open("postgres", dboptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get all subs for this user.
+	rows, err := dbh.Query("SELECT title, interval_start, interval_stop, weekday FROM subscriptions WHERE username = $1", username)
+	if err != nil {
+		logMessage("warn", "Getting titles failed", err)
+	}
+
+	var subs []Subscription
+	for rows.Next() {
+		var title, weekday string
+		var interval_start, interval_stop int
+		rows.Scan(&title, &interval_start, &interval_stop, &weekday)
+
+		// Translate the weekdays to Norwegian.
+		weekday_nor := getNorwegianWeekday(weekday)
+		subs = append(subs, Subscription{
+			Title:         title,
+			IntervalStart: zeroPad(strconv.Itoa(interval_start)),
+			IntervalStop:  zeroPad(strconv.Itoa(interval_stop)),
+			Weekday:       weekday_nor,
+		})
+	}
+
+	return subs, nil
+}
+
+func seriesPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	t, err := template.ParseFiles("templates/series.html")
 	if err != nil {
 		logMessage("error", "Could not parse template file for archive", err)
@@ -468,7 +576,6 @@ func seriesPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest){
 		_ = rows.Scan(&title)
 		programs = append(programs, title)
 	}
-	var times []string
 	d := make(map[string]interface{})
 	d["Programs"] = programs
 	t.Execute(w, d)
@@ -630,6 +737,11 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		currentViewers = countStream(streams[user.Name].Cmd.Process.Pid, user.Id)
 	}
 
+	subscriptions, err := getSeriesSubscriptions(user.Name)
+	if err != nil {
+		logMessage("warn", "Could not get subscriptions", err)
+	}
+
 	// Get the recordings for this user.
 	d["Recordings"] = recordings
 	d["RecordingsFolder"] = config.RecordingsFolder
@@ -640,6 +752,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	d["CurrentChannel"] = currentChannel
 	d["CurrentAddress"] = streams[user.Name].Address
 	d["Transcoding"] = streams[user.Name].Transcode
+	d["Subscriptions"] = subscriptions
 	d["URL"] = fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
 	if currentChannel != "" {
 		d["Running"] = true
@@ -678,6 +791,7 @@ func main() {
 	http.HandleFunc("/vlc", authenticator.Wrap(startVlcHandler))
 	http.HandleFunc("/archive", authenticator.Wrap(archivePageHandler))
 	http.HandleFunc("/series", authenticator.Wrap(seriesPageHandler))
+	http.HandleFunc("/startSubscription", authenticator.Wrap(startSeriesSubscription))
 
 	// Hack in order to serve the favicon without web-server
 	serveSingle("/favicon.ico", "./static/favicon.ico")

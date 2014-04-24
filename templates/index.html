@@ -46,16 +46,6 @@
           </div>
         </form>
       {{end}}
-      {{if .Recordings}}
-      <h3 class="underlined">Planlagte opptak</h3>
-      <ul>
-      {{$user := .User}}
-      {{range .Recordings}}
-      <li><b>{{.Start}}=>{{.Stop}}</b>: <em>{{.Title}}</em> på {{ .Channel }}
-      av {{ .User }} med transkoding: {{ .Transcoding }} (<a href="./stopRecording?id={{.Id}}&username={{$user}}">Stopp/slett</a>)</li>
-      {{end}}
-      </ul>
-      {{end}}
     </p>
     <form action="./external" method="get" class="pure-form">
       <h2 class="underlined">Strøm-parametere / spill av manuelt</h2>
@@ -71,6 +61,27 @@
         </div>
       </div>
     </form>
+
+    {{if .Recordings}}
+    <h2 class="underlined">Planlagte opptak</h2>
+    <ul>
+    {{$user := .User}}
+    {{range .Recordings}}
+    <li><b>{{.Start}}=>{{.Stop}}</b>: <em>{{.Title}}</em> på {{ .Channel }}
+    av {{ .User }} med transkoding: {{ .Transcoding }} (<a href="./stopRecording?id={{.Id}}&username={{$user}}">Stopp/slett</a>)</li>
+    {{end}}
+    </ul>
+    {{end}}
+
+    {{if .Subscriptions}}
+    <h2 class="underlined">Dine abonnement</h2>
+    <ul>
+    {{range .Subscriptions}}
+    <li>{{.Title}} hver {{.Weekday}} mellom {{.IntervalStart}} og {{.IntervalStop}}</li>
+    {{end}}
+    </ul>
+    {{end}}
+
     <h2 class="underlined">Velg kanal</h2>
       {{$user := .User}}
       {{$transcoding := .Transcoding}}
