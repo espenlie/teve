@@ -29,9 +29,12 @@
   "WebPort": "8000",
 
   "PasswordFile": ".htpasswd",
+
   "Debug": false,
 
   "RecordingsFolder": "recordings",
+  
+  "SubIntervalSize": 2,
 
   "DBHost" : "localhost",
   "DBName" : "epg",
