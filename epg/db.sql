@@ -12,19 +12,20 @@ CREATE TABLE IF NOT EXISTS recordings (
   username varchar(20),
   title varchar(256),
   channel varchar(30),
-  transcode varchar(4),
-  unique(start,title,channel)
+  transcode varchar(4)
 );
 CREATE TABLE IF NOT EXISTS subscriptions (
   id serial primary key,
   title text,
   interval_start smallint,
   interval_stop smallint,
-  weekday varchar(8),
+  weekday smallint,
   channel varchar(30),
   username varchar(20),
-  unique(title,interval_start,interval_stop,weekday,channel,username)
+  unique(interval_start, interval_stop)
 );
+CREATE UNIQUE INDEX unique_subscription ON subscriptions(title, weekday, channel);
+
 GRANT ALL ON epg TO epguser;
 GRANT ALL ON recordings TO epguser;
 GRANT ALL ON recordings_id_seq TO epguser;

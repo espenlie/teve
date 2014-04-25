@@ -127,21 +127,21 @@ func getTranscoding(trans string) int {
 	return transcoding
 }
 
-func getNorwegianWeekday(eng string) string {
-	dict := map[string]string{
-		"monday":    "mandag",
-		"tuesday":   "tirsdag",
-		"wednesday": "onsdag",
-		"thursday":  "torsdag",
-		"friday":    "fredag",
-		"saturday":  "lørdag",
-		"sunday":    "søndag",
+func getNorwegianWeekday(day int) string {
+	dict := map[int]string{
+		1: "mandag",
+		2: "tirsdag",
+		3: "onsdag",
+		4: "torsdag",
+		5: "fredag",
+		6: "lørdag",
+		0: "søndag",
 	}
 
-	if _, ok := dict[eng]; !ok {
+	if _, ok := dict[day]; !ok {
 		return "???"
 	}
-	return dict[eng]
+	return dict[day]
 }
 
 func loadPlannedRecordings() {
@@ -490,7 +490,7 @@ func deleteRecording(name string) error {
 	return nil
 }
 
-func insertSubscription(title string, weekday string, interval []int, channel string, username string) error {
+func insertSubscription(title string, weekday int, interval []int, channel string, username string) error {
 	// Connect to DB
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
@@ -523,8 +523,8 @@ func addHoursToInt(h int, d int) int {
 func startSeriesSubscription(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Get parameters from form
 	title := r.FormValue("title")
-	weekday := r.FormValue("weekday")
 	channel := r.FormValue("channel")
+	weekday, err := strconv.Atoi(r.FormValue("weekday"))
 	t, err := strconv.Atoi(r.FormValue("time"))
 	if err != nil {
 		logMessage("error", "Could not parse subscription time", err)
@@ -594,23 +594,25 @@ func checkSubscriptions() error {
 	// Connect to the DB
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 
 	// Time stamp used in the recording thread.
 	long_form := "2006-01-02 15:04"
 
 	// A nice query, finding all subscriptions not already in recordings.
-	rows, err := dbh.Query(`SELECT epg.start, epg.stop, epg.title, epg.channel, subscriptions.username
-												FROM epg
-												JOIN subscriptions ON epg.title = subscriptions.title
-												WHERE (subscriptions.title, subscriptions.channel) NOT IN (
-													SELECT title, channel FROM recordings
-												)
-												AND to_char(epg.start, 'HH24:MI')::time > (to_char(subscriptions.interval_start, '09') || ':00')::time
-												AND to_char(epg.start, 'HH24:MI')::time < (to_char(subscriptions.interval_stop, '09') || ':00')::time
-												AND epg.channel = subscriptions.channel`)
+	s := config.SubIntervalSize
+	stmt := fmt.Sprintf(`SELECT epg.start, epg.stop, epg.title, epg.channel, subscriptions.username
+											FROM epg
+											JOIN subscriptions ON epg.title = subscriptions.title
+											WHERE (subscriptions.title, subscriptions.channel) NOT IN (
+											SELECT title, channel FROM recordings
+											)
+											AND epg.start::time - '%d hours'::interval >= (to_char(subscriptions.interval_start, '09') || ':00')::time
+											AND epg.start::time + '%d hours'::interval >= (to_char(subscriptions.interval_stop, '09') || ':00')::time
+											AND extract(dow from epg.start) = subscriptions.weekday
+											AND epg.channel = subscriptions.channel`, s, s)
+	rows, err := dbh.Query(stmt)
+	if err != nil { return err }
 	for rows.Next() {
 		var title, channel, username string
 		var start, stop time.Time
@@ -645,8 +647,8 @@ func getSeriesSubscriptions(username string) ([]Subscription, error) {
 
 	var subs []Subscription
 	for rows.Next() {
-		var title, weekday, channel string
-		var id, interval_start, interval_stop int
+		var title, channel string
+		var id, interval_start, interval_stop, weekday int
 		rows.Scan(&id, &title, &interval_start, &interval_stop, &weekday, &channel)
 
 		// Get the zero-padded starttime
