@@ -59,6 +59,9 @@ def main():
 
             f = gzip.GzipFile(fileobj=compr, mode='rb')
             root = objectify.fromstring(f.read())
+            # print unicode(root["programme"]["title"])
+            if not 'programme' in [el.tag for el in root.iterchildren()]:
+                continue
             for programme in root["programme"]:
                 d = {}
                 start = parser.parse(programme.attrib["start"]).isoformat()
