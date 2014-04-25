@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import urllib2, json, sys
+import urllib, json, sys
 
 channels = {
     "NRK3 HD": ["https://nrk3us-f.akamaihd.net/i/nrk3us_0@107233/master.m3u8?dw=31", "#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=3528000,RESOLUTION=1280x720"]
@@ -16,7 +16,7 @@ for cname, params in channels.iteritems():
     m3u_file = params[0]
     quality = params[1]
 
-    resp = urllib2.urlopen(m3u_file)
+    resp = urllib.urlopen(m3u_file)
     urls = resp.readlines()
     for i, line in enumerate(urls):
         if line.strip() == quality:
@@ -28,4 +28,9 @@ api_endpoint = "addChannel"
 
 for cname, url in stream_urls.iteritems():
     if cname in [c["Name"] for c in config["Channels"]]:
-         urllib2.urlopen(base_url + api_endpoint + "?cname=" + cname + "&url=" + url)
+        params = { 'cname': cname, 'url': url }
+        endpoint = base_url + api_endpoint + "?" + urllib.urlencode(params)
+        try:
+            urllib.urlopen(endpoint)
+        except:
+            pass

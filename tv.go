@@ -39,7 +39,7 @@ type User struct {
 }
 
 type Config struct {
-	Channels         []Channel
+	Channels         *[]Channel
 	Hostname         string
 	HttpUser         string
 	HttpPass         string
@@ -307,13 +307,14 @@ func getUser(r *auth.AuthenticatedRequest) (User, error) {
 	return User{}, errors.New("Did not find user '" + username + "' authenticated from Basic Auth.")
 }
 
-func getChannel(channel_name string) (Channel, error) {
-	for _, channel := range config.Channels {
-		if channel.Name == channel_name {
-			return channel, nil
+func getChannel(channel_name string) (*Channel, error) {
+	arr := *(config.Channels)
+	for i, _ := range arr {
+		if arr[i].Name == channel_name {
+			return &(arr[i]), nil
 		}
 	}
-	return Channel{}, errors.New("Did not find specified channel name")
+	return &(Channel{}), errors.New("Did not find specified channel name")
 }
 
 func getEpgData(numEpg int) {
@@ -323,13 +324,14 @@ func getEpgData(numEpg int) {
 		logMessage("error", "Could not connect to EPG-db", err)
 		return
 	}
-	for i, channel := range config.Channels {
-		config.Channels[i].EPGlist = []EPG{}
+	for i, _ := range *(config.Channels) {
+		arr := *(config.Channels)
+		arr[i].EPGlist = []EPG{}
 		rows, err := dbh.Query(`SELECT title, start, stop
                             FROM epg
                             WHERE channel=$1
                             AND stop > now()
-                            LIMIT $2`, channel.Name, numEpg)
+                            LIMIT $2`, arr[i].Name, numEpg)
 		if err != nil {
 			logMessage("warn", "Could not fetch EPG-data from DB", err)
 			return
@@ -347,7 +349,7 @@ func getEpgData(numEpg int) {
 				StartLong: start.Format(long_form),
 				StopLong:  stop.Format(long_form),
 			}
-			config.Channels[i].EPGlist = append(config.Channels[i].EPGlist, epg)
+			arr[i].EPGlist = append(arr[i].EPGlist, epg)
 		}
 	}
 }
@@ -751,6 +753,27 @@ func startChannel(ch Channel, u User, transcoding int) error {
 	return nil
 }
 
+func addChannelHandler(w http.ResponseWriter, r *http.Request) {
+	// Add a channel, and if it already exist we edit the URL.
+	cname := r.FormValue("cname")
+	url := r.FormValue("url")
+	if cname == "" || url == "" {
+		logMessage("error", "Recieved malformed parameters to addChannel", nil)
+		fmt.Fprintf(w, "Error: malformed parameters.")
+		return
+	}
+
+	channel, notfound := getChannel(cname)
+	if notfound != nil {
+		// The channel was not found, add it.
+		*(config.Channels) = append(*(config.Channels), Channel{Name: cname, Address: url})
+	} else {
+		// Channel was found, edit the url.
+		channel.Address = url
+	}
+	fmt.Fprintf(w, "Ok.")
+}
+
 func startExternalStream(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	user, err := getUser(r)
 	if err != nil {
@@ -834,7 +857,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		}
 
 		// Then kill existing stream and start the one chosen.
-		err = startChannel(channel, user, transcoding)
+		err = startChannel(*channel, user, transcoding)
 		if err != nil {
 			logMessage("error", "Could not change channel", err)
 		}
@@ -913,7 +936,10 @@ func main() {
 	http.HandleFunc("/series", authenticator.Wrap(seriesPageHandler))
 	http.HandleFunc("/startSubscription", authenticator.Wrap(startSeriesSubscription))
 	http.HandleFunc("/deleteSubscription", authenticator.Wrap(removeSubscriptionHandler))
-	http.HandleFunc("/checkSubscriptions", checkSubscriptionsHandler) // No auth
+
+	// No auth
+	http.HandleFunc("/checkSubscriptions", checkSubscriptionsHandler)
+	http.HandleFunc("/addChannel", addChannelHandler)
 
 	// Hack in order to serve the favicon without web-server
 	serveSingle("/favicon.ico", "./static/favicon.ico")
