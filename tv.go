@@ -9,7 +9,6 @@ import (
 	_ "github.com/lib/pq"
 	"html/template"
 	"io/ioutil"
-	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -88,6 +87,7 @@ type Subscription struct {
 	Title     string
 	StartTime string
 	Weekday   string
+	Channel   string
 }
 
 var config Config
@@ -162,7 +162,10 @@ func loadPlannedRecordings() {
 	for rows.Next() {
 		var id int64
 		_ = rows.Scan(&id)
-		removeRecording(id)
+		err := removeRecording(id)
+		if err != nil {
+			logMessage("error", "Could not remove recording", err)
+		}
 	}
 
 	rows, err = dbh.Query("SELECT start,stop,username,title,channel,transcode FROM recordings")
@@ -188,7 +191,7 @@ func insertRecording(username, title, channel, transcode string, start, stop tim
 		return -1, err
 	}
 	tx, err := dbh.Begin()
-	var id int64
+	id := int64(-1)
 	err = tx.QueryRow(`SELECT id FROM recordings
                      WHERE title = $1
                      AND channel = $2
@@ -196,16 +199,15 @@ func insertRecording(username, title, channel, transcode string, start, stop tim
                      AND stop = $4`, title, channel, start, stop).Scan(&id)
 	if err == sql.ErrNoRows {
 		// Great the recording does not exist in the DB yet, lets insert it.
-		res, err := tx.Exec(`INSERT INTO recordings(
+		err := dbh.QueryRow(`INSERT INTO recordings(
     start,stop,username,title,channel,transcode) VALUES
-    ($1,$2,$3,$4,$5,$6)`,
-			start, stop, username, title, channel, transcode)
+    ($1,$2,$3,$4,$5,$6) RETURNING id`,
+			start, stop, username, title, channel, transcode).Scan(&id)
 		if err != nil {
 			return -1, err
 		}
-		id, _ = res.LastInsertId()
-		_ = tx.Commit()
 	} else if err != nil {
+		// There was an actual DB-error.
 		return -1, err
 	}
 	// We have either inserted the recording successfully, or the recording
@@ -213,24 +215,23 @@ func insertRecording(username, title, channel, transcode string, start, stop tim
 	return id, nil
 }
 
-func removeRecording(id int64) {
+func removeRecording(id int64) error {
 	// Delete from the DB
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
 	if err != nil {
-		logMessage("warn", "Could not connect to recordings-db", err)
-		return
+		return err
 	}
 	tx, _ := dbh.Begin()
 	_, err = tx.Exec("DELETE FROM recordings WHERE id = $1", id)
 	if err != nil {
-		fmt.Printf("Could not remove: %v\n", err.Error())
-		return
+		return err
 	}
 	_ = tx.Commit()
 
 	// Delete from cmd and kill command.
 	delete(recordings, id)
+	return nil
 }
 
 func getVLCstr(transcoding int, address, dst, access string) string {
@@ -352,13 +353,23 @@ func getEpgData(numEpg int) {
 }
 
 func stopRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
-	id, _ := strconv.Atoi(r.FormValue("id"))
-	removeRecording(int64(id))
+	id, err := strconv.Atoi(r.FormValue("id"))
+	if err != nil {
+		logMessage("error", "Could not convert recording-id to int", err)
+		http.Redirect(w, &(r.Request), config.BaseUrl, 302)
+	}
+
+	// Remove the recording from the database
+	err = removeRecording(int64(id))
+	if err != nil {
+		logMessage("error", "Could not remove recording", err)
+		http.Redirect(w, &(r.Request), config.BaseUrl, 302)
+	}
+
 	if _, ok := recordings[int64(id)]; ok {
 		_ = killStream(recordings[int64(id)].Cmd)
 	}
-	base_url := fmt.Sprintf("%v", config.BaseUrl)
-	http.Redirect(w, &r.Request, base_url, 302)
+	http.Redirect(w, &(r.Request), config.BaseUrl, 302)
 }
 
 func startRecording(sstart, sstop, username, title, channel, transcode string) {
@@ -436,10 +447,13 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	// Kill the recording.
 	err = killStream(cmd)
 	if err != nil {
-		fmt.Println(err.Error())
-		return
+		logMessage("error", "Could not kill recording", err)
 	}
-	removeRecording(id)
+
+	err = removeRecording(id)
+	if err != nil {
+		logMessage("error", "Could not remove recording", err)
+	}
 }
 
 func startRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
@@ -474,7 +488,7 @@ func deleteRecording(name string) error {
 	return nil
 }
 
-func insertSubscription(title string, weekday string, interval []int, username string) error {
+func insertSubscription(title string, weekday string, interval []int, channel string, username string) error {
 	// Connect to DB
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
@@ -485,9 +499,9 @@ func insertSubscription(title string, weekday string, interval []int, username s
 	// Insert the subscription.
 	tx, err := dbh.Begin()
 	_, err = tx.Exec(`INSERT INTO subscriptions(
-	title,interval_start,interval_stop,weekday,username) VALUES
-	($1,$2,$3,$4,$5)`,
-		title, interval[0], interval[1], weekday, username)
+	title,interval_start,interval_stop,weekday,channel,username) VALUES
+	($1,$2,$3,$4,$5,$6)`,
+		title, interval[0], interval[1], weekday, channel, username)
 	if err != nil {
 		return err
 	}
@@ -498,7 +512,7 @@ func insertSubscription(title string, weekday string, interval []int, username s
 
 func addHoursToInt(h int, d int) int {
 	// Calculate the time-interval
-	dur := time.Duration(time.Duration(math.Abs(float64(d))) * time.Hour)
+	dur := time.Duration(time.Duration(d) * time.Hour)
 	// We use a base-time, in order to elegantly calculate e.g. 23:00 + 2 hours = 01:00.
 	baseTime := time.Date(1970, 1, 1, h, 0, 0, 0, time.UTC)
 	return baseTime.Add(dur).Hour()
@@ -508,6 +522,7 @@ func startSeriesSubscription(w http.ResponseWriter, r *auth.AuthenticatedRequest
 	// Get parameters from form
 	title := r.FormValue("title")
 	weekday := r.FormValue("weekday")
+	channel := r.FormValue("channel")
 	t, err := strconv.Atoi(r.FormValue("time"))
 	if err != nil {
 		logMessage("error", "Could not parse subscription time", err)
@@ -516,9 +531,15 @@ func startSeriesSubscription(w http.ResponseWriter, r *auth.AuthenticatedRequest
 	interval := []int{addHoursToInt(t, -config.SubIntervalSize), addHoursToInt(t, config.SubIntervalSize)}
 
 	// Insert the subscription
-	err = insertSubscription(title, weekday, interval, r.Username)
+	err = insertSubscription(title, weekday, interval, channel, r.Username)
 	if err != nil {
 		logMessage("error", "Could not insert the subscription", err)
+	}
+
+	// And check if we should start a recording right away.
+	err = checkSubscriptions()
+	if err != nil {
+		logMessage("error", "Could not check and refresh the subscriptions", err)
 	}
 
 	// Redirect to front-page.
@@ -556,14 +577,54 @@ func removeSubscription(username string, id int64) error {
 		return errors.New("A user tried to delete a subscription he/she did not own")
 	}
 
-	tx, _ := dbh.Begin()
+	tx, err := dbh.Begin()
+	if err != nil {
+		return err
+	}
 	_, err = tx.Exec("DELETE FROM subscriptions WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
-	_ = tx.Commit()
+	return tx.Commit()
+}
+
+func checkSubscriptions() error {
+	// Connect to the DB
+	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+	dbh, err := sql.Open("postgres", dboptions)
+	if err != nil {
+		return err
+	}
+
+	// Time stamp used in the recording thread.
+	long_form := "2006-01-02 15:04"
+
+	// A nice query, finding all subscriptions not already in recordings.
+	rows, err := dbh.Query(`SELECT epg.start, epg.stop, epg.title, epg.channel, subscriptions.username
+												FROM epg
+												JOIN subscriptions ON epg.title = subscriptions.title
+												WHERE (subscriptions.title, subscriptions.channel) NOT IN (
+													SELECT title, channel FROM recordings
+												)
+												AND to_char(epg.start, 'HH24:MI')::time > (to_char(subscriptions.interval_start, '09') || ':00')::time
+												AND to_char(epg.start, 'HH24:MI')::time < (to_char(subscriptions.interval_stop, '09') || ':00')::time
+												AND epg.channel = subscriptions.channel`)
+	for rows.Next() {
+		var title, channel, username string
+		var start, stop time.Time
+		rows.Scan(&start, &stop, &title, &channel, &username)
+		go startRecording(start.Format(long_form), stop.Format(long_form), username, title, channel, "0")
+	}
 
 	return nil
+}
+
+func checkSubscriptionsHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
+	err := checkSubscriptions()
+	if err != nil {
+		logMessage("error", "Could not refresh and check subscriptions", err)
+	}
+	fmt.Fprintf(w, "Ok.")
 }
 
 func getSeriesSubscriptions(username string) ([]Subscription, error) {
@@ -575,16 +636,16 @@ func getSeriesSubscriptions(username string) ([]Subscription, error) {
 	}
 
 	// Get all subs for this user.
-	rows, err := dbh.Query("SELECT id, title, interval_start, interval_stop, weekday FROM subscriptions WHERE username = $1", username)
+	rows, err := dbh.Query("SELECT id, title, interval_start, interval_stop, weekday, channel FROM subscriptions WHERE username = $1", username)
 	if err != nil {
 		logMessage("warn", "Getting titles failed", err)
 	}
 
 	var subs []Subscription
 	for rows.Next() {
-		var title, weekday string
+		var title, weekday, channel string
 		var id, interval_start, interval_stop int
-		rows.Scan(&id, &title, &interval_start, &interval_stop, &weekday)
+		rows.Scan(&id, &title, &interval_start, &interval_stop, &weekday, &channel)
 
 		// Get the zero-padded starttime
 		stime := zeroPad(strconv.Itoa(addHoursToInt(interval_start, config.SubIntervalSize)))
@@ -601,6 +662,7 @@ func getSeriesSubscriptions(username string) ([]Subscription, error) {
 			Title:     title,
 			StartTime: stime,
 			Weekday:   weekday_nor,
+			Channel:   channel,
 		})
 	}
 
@@ -631,8 +693,11 @@ func seriesPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		_ = rows.Scan(&title)
 		programs = append(programs, title)
 	}
+
+	// Parameters
 	d := make(map[string]interface{})
 	d["Programs"] = programs
+	d["Channels"] = config.Channels
 	t.Execute(w, d)
 }
 
@@ -848,6 +913,7 @@ func main() {
 	http.HandleFunc("/series", authenticator.Wrap(seriesPageHandler))
 	http.HandleFunc("/startSubscription", authenticator.Wrap(startSeriesSubscription))
 	http.HandleFunc("/deleteSubscription", authenticator.Wrap(removeSubscriptionHandler))
+	http.HandleFunc("/checkSubscriptions", authenticator.Wrap(checkSubscriptionsHandler))
 
 	// Hack in order to serve the favicon without web-server
 	serveSingle("/favicon.ico", "./static/favicon.ico")

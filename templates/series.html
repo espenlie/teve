@@ -8,6 +8,11 @@
                 <option>{{.}}</option>
             {{end}}
         </select>
+        <select name="channel">
+          {{range .Channels}}
+            <option>{{.Name}}</option>
+          {{end}}
+        </select>
         <select name="weekday">
             <option value="monday">Mandag</option>
             <option value="tuesday">Tirsdag</option>

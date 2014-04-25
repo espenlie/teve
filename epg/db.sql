@@ -21,8 +21,9 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   interval_start smallint,
   interval_stop smallint,
   weekday varchar(8),
+  channel varchar(30),
   username varchar(20),
-  unique(title,interval_start,interval_stop,weekday,username)
+  unique(title,interval_start,interval_stop,weekday,channel,username)
 );
 GRANT ALL ON epg TO epguser;
 GRANT ALL ON recordings TO epguser;
