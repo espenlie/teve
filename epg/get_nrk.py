@@ -2,7 +2,8 @@
 import urllib, json, sys
 
 channels = {
-    "NRK3 HD": ["https://nrk3us-f.akamaihd.net/i/nrk3us_0@107233/master.m3u8?dw=31", "#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=3528000,RESOLUTION=1280x720"]
+    "NRK3 HD": ["https://nrk3us-f.akamaihd.net/i/nrk3us_0@107233/master.m3u8?dw=31", "#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=3528000,RESOLUTION=1280x720"],
+    "NRK2 HD": ["https://nrk3us-f.akamaihd.net/i/nrk2us_0@107233/master.m3u8?dw=31", "#EXT-X-STREAM-INF:PROGRAM-ID=1,BANDWIDTH=3528000,RESOLUTION=1280x720"]
 }
 stream_urls = {}
 
