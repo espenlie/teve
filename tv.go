@@ -619,7 +619,7 @@ func checkSubscriptions() error {
 	return nil
 }
 
-func checkSubscriptionsHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
+func checkSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	err := checkSubscriptions()
 	if err != nil {
 		logMessage("error", "Could not refresh and check subscriptions", err)
@@ -913,7 +913,7 @@ func main() {
 	http.HandleFunc("/series", authenticator.Wrap(seriesPageHandler))
 	http.HandleFunc("/startSubscription", authenticator.Wrap(startSeriesSubscription))
 	http.HandleFunc("/deleteSubscription", authenticator.Wrap(removeSubscriptionHandler))
-	http.HandleFunc("/checkSubscriptions", authenticator.Wrap(checkSubscriptionsHandler))
+	http.HandleFunc("/checkSubscriptions", checkSubscriptionsHandler) // No auth
 
 	// Hack in order to serve the favicon without web-server
 	serveSingle("/favicon.ico", "./static/favicon.ico")
