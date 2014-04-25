@@ -682,7 +682,7 @@ func seriesPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		return
 	}
 	// Select all existing programs
-	rows, err := dbh.Query("SELECT DISTINCT title FROM epg")
+	rows, err := dbh.Query("SELECT DISTINCT title FROM epg ORDER BY title")
 	if err != nil {
 		logMessage("warn", "Getting titles failed", err)
 		return
