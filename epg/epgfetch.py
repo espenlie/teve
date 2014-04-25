@@ -27,6 +27,7 @@ def main():
             { 'epg': 'nrk1.nrk.no',   'ui': 'NRK1 HD'},
             { 'epg': 'nrk1.nrk.no',   'ui': 'NRK1 Midtnytt'},
             { 'epg': 'nrk2.nrk.no',   'ui': 'NRK2'},
+            { 'epg': 'nrk2.nrk.no',   'ui': 'NRK2 HD'},
             { 'epg': 'nrk3.nrk.no',   'ui': 'NRK3 HD'},
             { 'epg': 'no.bbchd.no',   'ui': 'BBC World News'},
             { 'epg': 'film.tv2.no',   'ui': 'TV2 Film'},
