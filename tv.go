@@ -671,36 +671,25 @@ func getSeriesSubscriptions(username string) ([]Subscription, error) {
 	return subs, nil
 }
 
-func seriesPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
-	t, err := template.ParseFiles("templates/series.html")
-	if err != nil {
-		logMessage("error", "Could not parse template file for archive", err)
-		return
-	}
+func getAllPrograms() ([]string, error) {
+	var programs []string
+
+	// Connect to DB
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		logMessage("warn", "Cant connect to the PostgreSQL-DB at "+config.DBHost, err)
-		return
-	}
+	if err != nil { return programs, err }
+
 	// Select all existing programs
 	rows, err := dbh.Query("SELECT DISTINCT title FROM epg ORDER BY title")
-	if err != nil {
-		logMessage("warn", "Getting titles failed", err)
-		return
-	}
-	var programs []string
+	if err != nil { return programs, err	}
+
 	for rows.Next() {
 		var title string
 		_ = rows.Scan(&title)
 		programs = append(programs, title)
 	}
+	return programs, nil
 
-	// Parameters
-	d := make(map[string]interface{})
-	d["Programs"] = programs
-	d["Channels"] = config.Channels
-	t.Execute(w, d)
 }
 
 func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
@@ -885,6 +874,12 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		logMessage("warn", "Could not get subscriptions", err)
 	}
 
+	// Get all program titles from EPG-data
+	programs, err := getAllPrograms()
+	if (err != nil) {
+		logMessage("error", "Could not get alle programs from DB", err)
+	}
+
 	// Get the recordings for this user.
 	d["Recordings"] = recordings
 	d["RecordingsFolder"] = config.RecordingsFolder
@@ -896,6 +891,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	d["CurrentAddress"] = streams[user.Name].Address
 	d["Transcoding"] = streams[user.Name].Transcode
 	d["Subscriptions"] = subscriptions
+	d["Programs"] = programs
 	d["URL"] = fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
 	if currentChannel != "" {
 		d["Running"] = true
@@ -933,7 +929,6 @@ func main() {
 	http.HandleFunc("/stopRecording", authenticator.Wrap(stopRecordingHandler))
 	http.HandleFunc("/vlc", authenticator.Wrap(startVlcHandler))
 	http.HandleFunc("/archive", authenticator.Wrap(archivePageHandler))
-	http.HandleFunc("/series", authenticator.Wrap(seriesPageHandler))
 	http.HandleFunc("/startSubscription", authenticator.Wrap(startSeriesSubscription))
 	http.HandleFunc("/deleteSubscription", authenticator.Wrap(removeSubscriptionHandler))
 
