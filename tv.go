@@ -307,13 +307,22 @@ func getUser(r *auth.AuthenticatedRequest) (User, error) {
 	return User{}, errors.New("Did not find user '" + username + "' authenticated from Basic Auth.")
 }
 
-func getChannel(channel_name string) (*Channel, error) {
+func getChannel(channel_name, username string) (*Channel, error) {
+	// Check if the channel is defined in the config-file.
 	arr := *(config.Channels)
 	for i, _ := range arr {
 		if arr[i].Name == channel_name {
 			return &(arr[i]), nil
 		}
 	}
+
+	// Check if the user is running a stream, that perhaps is not in the config file.
+	if _, ok := streams[username]; ok {
+		s := streams[username]
+		return &(Channel{Name: s.Name, Address: s.Address}), nil
+	}
+
+	// The channel is not defined, nor is it defined by the user. Return error.
 	return &(Channel{}), errors.New("Did not find specified channel name")
 }
 
@@ -413,7 +422,7 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	}
 
 	// Get the channel for this recording
-	ch, err := getChannel(channel)
+	ch, err := getChannel(channel, username)
 	if err != nil {
 		logMessage("error", "Could not get channel in order to start recording", err)
 		return
@@ -594,7 +603,9 @@ func checkSubscriptions() error {
 	// Connect to the DB
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	// Time stamp used in the recording thread.
 	long_form := "2006-01-02 15:04"
@@ -612,7 +623,9 @@ func checkSubscriptions() error {
 											AND extract(dow from epg.start) = subscriptions.weekday
 											AND epg.channel = subscriptions.channel`, s, s)
 	rows, err := dbh.Query(stmt)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	for rows.Next() {
 		var title, channel, username string
 		var start, stop time.Time
@@ -679,11 +692,15 @@ func getAllPrograms() ([]string, error) {
 	// Connect to DB
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
 	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil { return programs, err }
+	if err != nil {
+		return programs, err
+	}
 
 	// Select all existing programs
 	rows, err := dbh.Query("SELECT DISTINCT title FROM epg ORDER BY title")
-	if err != nil { return programs, err	}
+	if err != nil {
+		return programs, err
+	}
 
 	for rows.Next() {
 		var title string
@@ -754,7 +771,8 @@ func addChannelHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	channel, notfound := getChannel(cname)
+	// Pass empty username, as we are only interested in config-channels.
+	channel, notfound := getChannel(cname, "")
 	if notfound != nil {
 		// The channel was not found, add it.
 		*(config.Channels) = append(*(config.Channels), Channel{Name: cname, Address: url})
@@ -812,18 +830,18 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 
 	// Check if we already are playing a channel.
 	currentChannel := ""
-	if _, ok := streams[user.Name]; ok {
-		currentChannel = streams[user.Name].Name
-	}
+
+	// Check if we pass a channel name in parameters
+	channelName := r.FormValue("channel")
 
 	// Check if we want to transcode the stream.
-	transcoding := getTranscoding(r.FormValue("transcoding"))
+	ftranscoding := r.FormValue("transcoding")
+	transcoding := getTranscoding(ftranscoding)
+	currentTranscoding := 0
 
-	// Check if we want to refresh stream (change it)
-	refresh := false
-	form_refresh := r.FormValue("refresh")
-	if form_refresh == "1" {
-		refresh = true
+	if _, ok := streams[user.Name]; ok {
+		currentChannel = streams[user.Name].Name
+		currentTranscoding = streams[user.Name].Transcode
 	}
 
 	// Get number of elements to show in the EPG feed
@@ -837,11 +855,11 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	}
 	getEpgData(numEpg)
 
-	// If '&channel' is passed, it means we want to change/start a stream.
-	channelName := r.FormValue("channel")
-	if channelName != "" && refresh {
+	// Check that the form-values are non empty and that they are different from
+	// current configuration. If true, we kill stream and start a new one.
+	if (channelName != "" && channelName != currentChannel) || (ftranscoding != "" && transcoding != currentTranscoding) {
 		// First, get channel struct we want to change to.
-		channel, err := getChannel(channelName)
+		channel, err := getChannel(channelName, user.Name)
 		if err != nil {
 			logMessage("error", "Could not get channel", err)
 			return
@@ -852,7 +870,9 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		if err != nil {
 			logMessage("error", "Could not change channel", err)
 		}
-		currentChannel = channel.Name
+
+		// Easiest now is just to redirect the user back to the index.
+		http.Redirect(w, &(r.Request), config.BaseUrl, 302)
 	}
 
 	kill_index := r.FormValue("kchannel")
@@ -862,7 +882,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 			logMessage("error", "Could not kill stream", err)
 			return
 		}
-		http.Redirect(w, &r.Request, config.BaseUrl, 302)
+		http.Redirect(w, &(r.Request), config.BaseUrl, 302)
 	}
 
 	// Get number of viewers on current channel
@@ -878,7 +898,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 
 	// Get all program titles from EPG-data
 	programs, err := getAllPrograms()
-	if (err != nil) {
+	if err != nil {
 		logMessage("error", "Could not get alle programs from DB", err)
 	}
 
@@ -891,7 +911,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	d["User"] = user.Name
 	d["CurrentChannel"] = currentChannel
 	d["CurrentAddress"] = streams[user.Name].Address
-	d["Transcoding"] = streams[user.Name].Transcode
+	d["Transcoding"] = currentTranscoding
 	d["Subscriptions"] = subscriptions
 	d["Programs"] = programs
 	d["URL"] = fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
