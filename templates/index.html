@@ -6,6 +6,17 @@
     <link rel="stylesheet" href="{{.BaseUrl}}static/styles.css">
     <meta http-equiv="refresh" content="180; url={{.BaseUrl}}">
     <meta name="viewport" content="width=device-width, user-scalable=no">
+    <script>
+      var toggle = function(elem){
+        var row = elem.parentElement.parentElement;
+        var descr = row.nextSibling.nextSibling;
+        if (descr.style.display == "none"){
+          descr.style.display = "";
+        } else {
+          descr.style.display = "none"
+        }
+      }
+    </script>
   </head>
   <body>
   {{$base := .BaseUrl}}
@@ -151,7 +162,7 @@
       {{$transcoding := .Transcoding}}
       {{range .Channels}}
         <div class="channel">
-          <a href="{{$base}}?channel={{.Name}}&transcoding={{$transcoding}}" class="channelname"><b>{{.Name}}</b></a>
+          <a href="{{$base}}?channel={{.Name}}&transcoding={{$transcoding}}" class="clean-link"><b>{{.Name}}</b></a>
           <a href="{{$base}}?channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Spill av</a>
         </div>
         {{if not .EPGlist}}
@@ -160,13 +171,19 @@
         <table class="pure-table programme-list">
             {{$channel := .}}
             {{range $index, $epg := .EPGlist}}
-            <tr class="{{if not $index}}header{{end}}">
-              <td>
+            <tr class="{{if not $index}}header{{end}} programme">
+              <td class="prop">
                 <a href="{{$base}}record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}" class="record-button">◉</a>
               </td>
-              <td>{{.Start}}</td>
-              <td>{{.Stop}}</td>
-              <td>{{.Title}}</td>
+              <td class="prop">{{.Start}}</td>
+              <td class="prop">{{.Stop}}</td>
+              <td><a class="clean-link" href="#" onclick="toggle(this);return false">{{.Title}}</a></td>
+            </tr>
+            <tr class="description" style="display:none">
+              <td class="prop"></td>
+              <td class="prop"></td>
+              <td class="prop"></td>
+              <td><em>{{.Description}}</em></td>
             </tr>
             {{end}}
         </table>

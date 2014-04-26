@@ -3,7 +3,8 @@ CREATE TABLE epg (
   title text,
   start timestamp,
   stop timestamp,
-  channel varchar(30)
+  channel varchar(30),
+  description text
 );
 CREATE TABLE IF NOT EXISTS recordings (
   id serial primary key,

@@ -66,7 +66,7 @@ body {
 .channel a {
   margin: 5px;
 }
-.channel a.channelname {
+.clean-link {
   color: black;
   text-decoration: none;
 }
@@ -77,54 +77,58 @@ tr.header td {
   font-weight: bold;
 }
 .programme-list {
-  border-right:none;
+  /*border-right:none;*/
+  width:100%;
   border-top:none;
   border-bottom:none;
+}
+.programme-list .prop {
+  width:15px;
 }
 .underlined {
   width:100%;
   border-bottom: 1px solid #ddd;
 }
 .bs-callout {
-    margin: 20px 0;
-    padding: 20px;
-    border-left: 3px solid #eee;
-    overflow: hidden;
+  margin: 20px 0;
+  padding: 20px;
+  border-left: 3px solid #eee;
+  overflow: hidden;
 }
 .bs-callout p:last-child {
-    margin-bottom: 0;
+  margin-bottom: 0;
 }
 .bs-callout-danger {
-    background-color: #fdf7f7;
-    border-color: #d9534f;
+  background-color: #fdf7f7;
+  border-color: #d9534f;
 }
 .bs-callout-warning {
-    background-color: #fcf8f2;
-    border-color: #f0ad4e;
+  background-color: #fcf8f2;
+  border-color: #f0ad4e;
 }
 .bs-callout-info {
-    background-color: #f4f8fa;
-    border-color: rgb(66, 184, 221);
+  background-color: #f4f8fa;
+  border-color: rgb(66, 184, 221);
 }
 .bs-callout h4 {
-    margin-top: 0;
-    margin-bottom: 5px;
+  margin-top: 0;
+  margin-bottom: 5px;
 }
 .bs-callout-danger h4 {
-    color: #d9534f;
+  color: #d9534f;
 }
 .bs-callout-warning h4 {
-    color: #f0ad4e;
+  color: #f0ad4e;
 }
 .bs-callout-info h4 {
-    color: rgb(66, 184, 221);
+  color: rgb(66, 184, 221);
 }
 .set-button {
   margin-left: 10px;
 }
 .record-button {
-  text-decoration: none;
-  color: #d9534f;
+    text-decoration: none;
+    color: #d9534f;
 }
 @media only screen and (max-width: 800px) {
   .home-menu li {

@@ -69,6 +69,7 @@ type EPG struct {
 	Stop      string
 	StartLong string
 	StopLong  string
+	Description string
 }
 
 type Recording struct {
@@ -336,7 +337,7 @@ func getEpgData(numEpg int) {
 	for i, _ := range *(config.Channels) {
 		arr := *(config.Channels)
 		arr[i].EPGlist = []EPG{}
-		rows, err := dbh.Query(`SELECT title, start, stop
+		rows, err := dbh.Query(`SELECT title, start, stop, description
                             FROM epg
                             WHERE channel=$1
                             AND stop > now()
@@ -346,9 +347,13 @@ func getEpgData(numEpg int) {
 			return
 		}
 		for rows.Next() {
-			var title string
+			var title, description string
 			var start, stop time.Time
-			_ = rows.Scan(&title, &start, &stop)
+			err = rows.Scan(&title, &start, &stop, &description)
+			if (err != nil) {
+				logMessage("error", "Could not get EPG-data from DB", err)
+				return
+			}
 			short_form := "15:04"
 			long_form := "2006-01-02 15:04"
 			epg := EPG{
@@ -357,6 +362,7 @@ func getEpgData(numEpg int) {
 				Stop:      stop.Format(short_form),
 				StartLong: start.Format(long_form),
 				StopLong:  stop.Format(long_form),
+				Description: description,
 			}
 			arr[i].EPGlist = append(arr[i].EPGlist, epg)
 		}
