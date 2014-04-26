@@ -936,12 +936,6 @@ func countStream(pid int, userid string) string {
 	return strings.TrimSpace(string(out))
 }
 
-func serveSingle(pattern string, filename string) {
-	http.HandleFunc(pattern, func(w http.ResponseWriter, r *http.Request) {
-		http.ServeFile(w, r, filename)
-	})
-}
-
 func main() {
 	config = loadConfig("config.json")
 
@@ -963,9 +957,6 @@ func main() {
 	// No auth
 	http.HandleFunc("/checkSubscriptions", checkSubscriptionsHandler)
 	http.HandleFunc("/addChannel", addChannelHandler)
-
-	// Hack in order to serve the favicon without web-server
-	serveSingle("/favicon.ico", "./static/favicon.ico")
 
 	// Static content, including video-files of old recordings.
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
