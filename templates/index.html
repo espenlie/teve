@@ -25,7 +25,7 @@
   <div class="content">
       {{if .Running }}
         <div class="bs-callout bs-callout-danger">
-          <h4>Play in VLC?</h4>
+          <h4>Spill av i VLC?</h4>
           <p>Din URL er: <a href="{{.URL}}"><em>{{.URL}}</em></a></p>
           <p><a href="{{$base}}vlc?url={{.URL}}" target="_blank">Trykk her</a> for å spille i nettleseren din (Du behøver en <a href="http://www.videolan.org/vlc/#download">VLC-plugin</a> og lenken blir åpnet i ny tab/vindu)</p>
           </p>
@@ -49,7 +49,7 @@
     <form action="./external" method="get" class="pure-form">
       <h2 class="underlined">Strøm-parametere / spill av manuelt</h2>
       <div class="pure-g">
-        <div class="pure-u-1-4">
+        <div class="pure-u-1-6">
           <input type="text" name="name" class="pure-input-1" value="{{.CurrentChannel}}" placeholder="Navn (valgfritt)" />
         </div>
         <div class="pure-u-1-3" style="margin-left: 10px">
@@ -76,59 +76,74 @@
     <h2 class="underlined">Dine abonnement</h2>
     <ul>
     {{range .Subscriptions}}
-    <li>{{.Title}} hver {{.Weekday}} rundt {{.StartTime}} (<a href="./deleteSubscription?id={{.Id}}">Slett</a>)</li>
+    <li><em>{{.Title}}</em> hver {{.Weekday}} rundt {{.StartTime}}:00 (<a href="./deleteSubscription?id={{.Id}}">Slett</a>)</li>
     {{end}}
     </ul>
     {{end}}
 
     <h2 class="underlined">Start nytt abonnement</h2>
+    <p>Automatisk ta opp dine favorittprogrammer, og lagre dem i arkivet – hver
+    uke. Velg programnavn, kanal, hvilken dag det går og ca. når programmet
+    starter.</p>
     <form action="./startSubscription" method="get" class="pure-form">
-      <select name="title" style="width:300px">
-          {{range .Programs}}
-              <option>{{.}}</option>
-          {{end}}
-      </select>
-      <select name="channel">
-        {{range .Channels}}
-          <option>{{.Name}}</option>
-        {{end}}
-      </select>
-      <select name="weekday">
-          <option value="1">Mandager</option>
-          <option value="2">Tirsdager</option>
-          <option value="3">Onsdager</option>
-          <option value="4">Torsdager</option>
-          <option value="5">Fredager</option>
-          <option value="6">Lørdager</option>
-          <option value="0">Søndager</option>
-      </select>
-      <select name="time">
-          <option value="00">00</option>
-          <option value="01">01</option>
-          <option value="02">02</option>
-          <option value="03">03</option>
-          <option value="04">04</option>
-          <option value="05">05</option>
-          <option value="06">06</option>
-          <option value="07">07</option>
-          <option value="08">08</option>
-          <option value="09">09</option>
-          <option value="10">10</option>
-          <option value="11">11</option>
-          <option value="12">12</option>
-          <option value="13">13</option>
-          <option value="14">14</option>
-          <option value="15">15</option>
-          <option value="16">16</option>
-          <option value="17">17</option>
-          <option value="18">18</option>
-          <option value="19">19</option>
-          <option value="20">20</option>
-          <option value="21">21</option>
-          <option value="22">22</option>
-          <option value="23">23</option>
-      </select>
-      <input type="submit" class="pure-button button-yellow" value="Register abonnement">
+      <div class="pure-g">
+        <div class="pure-u-1-6">
+          <select name="title" class="pure-input-1">
+              {{range .Programs}}
+                  <option>{{.}}</option>
+              {{end}}
+          </select>
+        </div>
+        <div class="pure-u-1-12 set-button">
+          <select name="channel" class="pure-input-1">
+            {{range .Channels}}
+              <option>{{.Name}}</option>
+            {{end}}
+          </select>
+        </div>
+        <div class="pure-u-1-12 set-button">
+          <select name="weekday" class="pure-input-1">
+              <option value="1">Mandager</option>
+              <option value="2">Tirsdager</option>
+              <option value="3">Onsdager</option>
+              <option value="4">Torsdager</option>
+              <option value="5">Fredager</option>
+              <option value="6">Lørdager</option>
+              <option value="0">Søndager</option>
+          </select>
+        </div>
+        <div class="pure-u-1-16 set-button">
+          <select name="time" class="pure-input-1">
+              <option value="00">00:00</option>
+              <option value="01">01:00</option>
+              <option value="02">02:00</option>
+              <option value="03">03:00</option>
+              <option value="04">04:00</option>
+              <option value="05">05:00</option>
+              <option value="06">06:00</option>
+              <option value="07">07:00</option>
+              <option value="08">08:00</option>
+              <option value="09">09:00</option>
+              <option value="10">10:00</option>
+              <option value="11">11:00</option>
+              <option value="12">12:00</option>
+              <option value="13">13:00</option>
+              <option value="14">14:00</option>
+              <option value="15">15:00</option>
+              <option value="16">16:00</option>
+              <option value="17">17:00</option>
+              <option value="18">18:00</option>
+              <option value="19">19:00</option>
+              <option value="20">20:00</option>
+              <option value="21">21:00</option>
+              <option value="22">22:00</option>
+              <option value="23">23:00</option>
+          </select>
+        </div>
+        <div class="pure-u-1-16 set-button">
+          <input type="submit" class="pure-button button-yellow" value="Register abonnement">
+        </div>
+      </div>
     </form>
 
     <h2 class="underlined">Velg kanal</h2>
@@ -136,9 +151,8 @@
       {{$transcoding := .Transcoding}}
       {{range .Channels}}
         <div class="channel">
-          <a href="{{$base}}?channel={{.Name}}&transcoding={{$transcoding}}"><b>{{.Name}}</b></a>
-          <a
-            href="{{$base}}?channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Spill av</a>
+          <a href="{{$base}}?channel={{.Name}}&transcoding={{$transcoding}}" class="channelname"><b>{{.Name}}</b></a>
+          <a href="{{$base}}?channel={{.Name}}&transcoding={{$transcoding}}" class="pure-button button-green right">Spill av</a>
         </div>
         {{if not .EPGlist}}
         <p>Ingen EPG-data funnet for denne kanalen</p>
@@ -148,7 +162,7 @@
             {{range $index, $epg := .EPGlist}}
             <tr class="{{if not $index}}header{{end}}">
               <td>
-                <a href="{{$base}}record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}">R</a>
+                <a href="{{$base}}record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}" class="record-button">◉</a>
               </td>
               <td>{{.Start}}</td>
               <td>{{.Stop}}</td>

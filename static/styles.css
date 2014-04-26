@@ -65,6 +65,8 @@ body {
 }
 .channel a {
   margin: 5px;
+}
+.channel a.channelname {
   color: black;
   text-decoration: none;
 }
@@ -119,6 +121,10 @@ tr.header td {
 }
 .set-button {
   margin-left: 10px;
+}
+.record-button {
+  text-decoration: none;
+  color: #d9534f;
 }
 @media only screen and (max-width: 800px) {
   .home-menu li {
