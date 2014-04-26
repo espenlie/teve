@@ -924,7 +924,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 }
 
 func countStream(pid int, userid string) string {
-	cmd := fmt.Sprintf("lsof -a -t -p %d -i tcp:%v%v | wc -l", pid, config.StreamingPort, userid)
+	cmd := fmt.Sprintf("lsof -a -p %d -i tcp:%v%v | grep ESTABLISHED | wc -l", pid, config.StreamingPort, userid)
 	oneliner := exec.Command("bash", "-c", cmd)
 	out, _ := oneliner.Output()
 	return strings.TrimSpace(string(out))
