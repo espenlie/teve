@@ -17,6 +17,9 @@ body {
   border-radius: 4px;
   border: 1px solid black;
 }
+form {
+  margin: 10px 0;
+}
 </style>
 </head>
 <script>
@@ -28,6 +31,10 @@ var enableDeinterlace = function() {
 <body>
 <div id="content">
 <h2>VLC web-media player</h2>
+<form action="./vlc">
+  <input type="text" value="{{.Url}}" name="url" style="width: 70%">
+  <input type="submit" value="Endre url">
+</form>
 <embed type="application/x-vlc-plugin"
 pluginspage="http://www.videolan.org" version="VideoLAN.VLCPlugin.2" 
 width="640px" 
@@ -38,8 +45,8 @@ autoplay="yes"
 target="{{.Url}}"></embed>
 <b>Tips: </b><em>Dobbel-klikk for å få fullskjerm</em><br />
 <b>Tips: </b><em>Problemer? Prøv å stoppe og starte streamen!</em>
-<p>Spiller av <a href="{[.Url}}">{{.Url}}</a></br>
-<a href="#" onclick="enableDeinterlace()">Skru på deinterlace med Yadif2x</a>
+<p>
+<a href="#" onclick="enableDeinterlace()">Skru på deinterlace med Yadif2x (js)</a>
 </p>
 </div>
 </body>
