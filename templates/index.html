@@ -173,11 +173,11 @@
             {{range $index, $epg := .EPGlist}}
             <tr class="{{if not $index}}header{{end}} programme">
               <td class="prop">
-                <a href="{{$base}}record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}" class="record-button">◉</a>
+                <a title="Start opptak av dette programmet" href="{{$base}}record?user={{$user}}&start={{.StartLong}}&stop={{.StopLong}}&title={{.Title}}&channel={{$channel.Name}}&transcode={{$transcoding}}" class="record-button">◉</a>
               </td>
               <td class="prop">{{.Start}}</td>
               <td class="prop">{{.Stop}}</td>
-              <td><a class="clean-link" href="#" onclick="toggle(this);return false">{{.Title}}</a></td>
+              <td><a class="clean-link" title="Se detaljer" href="#" onclick="toggle(this);return false">{{.Title}}</a></td>
             </tr>
             <tr class="description" style="display:none">
               <td class="prop"></td>
