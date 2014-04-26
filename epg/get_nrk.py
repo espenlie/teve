@@ -23,7 +23,8 @@ for cname, params in channels.iteritems():
         if line.strip() == quality:
             stream_urls[cname] = urls[i+1].strip()
 
-base_url = "http://%s:%s%s" % (config["Hostname"], config["WebPort"], config["BaseUrl"])
+port = ":%s" % config["WebPort"] if config["Debug"] else ""
+base_url = "http://%s%s%s" % (config["Hostname"], port, config["BaseUrl"])
 api_endpoint = "addChannel"
 
 for cname, url in stream_urls.iteritems():
