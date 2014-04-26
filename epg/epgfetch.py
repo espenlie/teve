@@ -67,11 +67,11 @@ def main():
                 d = {}
                 start = parser.parse(programme.attrib["start"]).isoformat()
                 stop = parser.parse(programme.attrib["stop"]).isoformat()
-                title = unicode(programme["title"].strip())
+                title = unicode(programme["title"])
                 description = unicode(programme["desc"]) if hasattr(programme, "desc") else ""
                 ch = channel["ui"]
                 stmt = "INSERT INTO %s(start,stop,title,channel,description) " % (config["DBName"])
-                cur.execute(stmt + "VALUES(%s,%s,%s,%s,%s)",(start,stop,title,ch,description))
+                cur.execute(stmt + "VALUES(%s,%s,%s,%s,%s)",(start,stop,title.strip(),ch,description))
     conn.commit()
     cur.close()
     conn.close()
