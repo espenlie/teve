@@ -163,37 +163,48 @@ func getNorwegianWeekday(day int) string {
 
 func getDatabaseHandler() (*sql.DB, error) {
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	return sql.Open("postgres", dboptions)
+	dbh, err := sql.Open("postgres", dboptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check that the DB is responding.
+	err = dbh.Ping()
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("PostgreSQL not responding: %v", err))
+	}
+
+	return dbh, nil
 }
 
-func loadPlannedRecordings() {
+func loadPlannedRecordings() error {
 	dbh, err := getDatabaseHandler()
 	if err != nil {
-		logMessage("warn", "Cant connect to the PostgreSQL-DB at "+config.DBHost, err)
-		return
+		return err
 	}
+
 	long_form := "2006-01-02 15:04"
 
 	// First delete those that have finished since last time.
 	rows, err := dbh.Query("SELECT id FROM recordings WHERE stop < now()")
 	if err != nil {
-		logMessage("warn", "Getting old finished recordings failed", err)
-		return
+		return err
 	}
+
 	for rows.Next() {
 		var id int64
 		_ = rows.Scan(&id)
 		err := removeRecording(id)
 		if err != nil {
-			logMessage("error", "Could not remove recording", err)
+			return err
 		}
 	}
 
 	rows, err = dbh.Query("SELECT start,stop,username,title,channel,transcode FROM recordings")
 	if err != nil {
-		logMessage("warn", "Getting future recordings failed", err)
-		return
+		return err
 	}
+
 	cnt := 0
 	for rows.Next() {
 		var username, title, channel, transcode string
@@ -203,11 +214,14 @@ func loadPlannedRecordings() {
 		cnt += 1
 	}
 	logMessage("info", fmt.Sprintf("Loaded %d recordings from DB", cnt), nil)
+	return nil
 }
 
 func insertRecording(username, title, channel, transcode string, start, stop time.Time) (int64, error) {
 	dbh, err := getDatabaseHandler()
-	if err != nil { return -1, err }
+	if err != nil {
+		return -1, err
+	}
 
 	tx, err := dbh.Begin()
 	id := int64(-1)
@@ -237,7 +251,9 @@ func insertRecording(username, title, channel, transcode string, start, stop tim
 func removeRecording(id int64) error {
 	// Delete from the DB
 	dbh, err := getDatabaseHandler()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	tx, _ := dbh.Begin()
 	_, err = tx.Exec("DELETE FROM recordings WHERE id = $1", id)
@@ -522,7 +538,9 @@ func deleteRecording(name string) error {
 func insertSubscription(title string, weekday int, interval []int, channel string, username string) error {
 	// Connect to DB
 	dbh, err := getDatabaseHandler()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	// Insert the subscription.
 	tx, err := dbh.Begin()
@@ -594,7 +612,9 @@ func removeSubscriptionHandler(w http.ResponseWriter, r *auth.AuthenticatedReque
 func removeSubscription(username string, id int64) error {
 	// Connect to the DB
 	dbh, err := getDatabaseHandler()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	// Check that the username owns this recording.
 	dbh.QueryRow("SELECT * FROM subscriptions WHERE username = $1 AND id = $2", username, id)
@@ -616,7 +636,9 @@ func removeSubscription(username string, id int64) error {
 func checkSubscriptions() error {
 	// Connect to the DB
 	dbh, err := getDatabaseHandler()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	// Time stamp used in the recording thread.
 	long_form := "2006-01-02 15:04"
@@ -658,7 +680,9 @@ func checkSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 func getSeriesSubscriptions(username string) ([]Subscription, error) {
 	// Connect to DB
 	dbh, err := getDatabaseHandler()
-	if err != nil { return nil, err }
+	if err != nil {
+		return nil, err
+	}
 
 	// Get all subs for this user.
 	rows, err := dbh.Query("SELECT id, title, interval_start, interval_stop, weekday, channel FROM subscriptions WHERE username = $1", username)
@@ -699,7 +723,9 @@ func getAllPrograms() ([]string, error) {
 
 	// Connect to DB
 	dbh, err := getDatabaseHandler()
-	if err != nil { return programs, err }
+	if err != nil {
+		return programs, err
+	}
 
 	// Select all existing programs
 	rows, err := dbh.Query("SELECT DISTINCT title FROM epg ORDER BY title")
@@ -1010,7 +1036,9 @@ func writeCubemapConfig(filename string) error {
 
 	// Write the config file
 	err := ioutil.WriteFile(filename, []byte(d), 0644)
-	if (err != nil) { return err }
+	if err != nil {
+		return err
+	}
 
 	// SIGHUP the cubemap service
 	pid, err := getPid("cubemap")
@@ -1018,7 +1046,9 @@ func writeCubemapConfig(filename string) error {
 		return errors.New(fmt.Sprintf("Could not send SIGHUP to cubemap, %s", err.Error()))
 	}
 	err = syscall.Kill(pid, syscall.SIGHUP)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -1040,7 +1070,10 @@ func main() {
 	}
 
 	// The server has (re)started, so we load in the planned recordings.
-	loadPlannedRecordings()
+	err := loadPlannedRecordings()
+	if err != nil {
+		logMessage("error", "Failed to initialize recordings", err)
+	}
 
 	// Defining our paths
 	secrets := auth.HtpasswdFileProvider(config.PasswordFile)
@@ -1065,7 +1098,7 @@ func main() {
 	if config.Debug {
 		logMessage("debug", "Serverer nettsiden på http://localhost:"+config.WebPort, nil)
 	}
-	err := http.ListenAndServe(":"+config.WebPort, nil)
+	err = http.ListenAndServe(":"+config.WebPort, nil)
 	if err != nil {
 		logMessage("error", "Problemer med å serve content", err)
 	}
