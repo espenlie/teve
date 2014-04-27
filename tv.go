@@ -986,6 +986,9 @@ func getPid(serviceName string) (int, error) {
 		return -1, errors.New("Service not found")
 	}
 
+	// Remove last new line.
+	spid = spid[:len(spid)-1]
+
 	// Convert to int and return
 	pid, err := strconv.Atoi(string(spid))
 	if err != nil {
@@ -1026,7 +1029,7 @@ func writeCubemapConfig(filename string) error {
 	// SIGHUP the cubemap service
 	pid, err := getPid("cubemap")
 	if err != nil {
-		return errors.New(fmt.Sprintf("Could not send SIGHIP to cubemap, %s", err.Error()))
+		return errors.New(fmt.Sprintf("Could not send SIGHUP to cubemap, %s", err.Error()))
 	}
 	err = syscall.Kill(pid, syscall.SIGHUP)
 	if err != nil {
