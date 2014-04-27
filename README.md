@@ -6,13 +6,13 @@ subscriptions - making it a complete DVR-solution for HTTP/Multicast streams.
 The frontend language in Norwegian, but for some reason the README is in
 English.
 
-A working demo is available at: http://demo:password@tv.schistad.info
+A working demo is available at: [http://demo:password@tits.abakus.no/tv](http://demo:password@tits.abakus.no/tv)
 
 ## Building and configuration
 
 First, make sure all dependencies are met:
 
-    $ aptitude install postgresql postgresql-server-dev-all python-dev apache-utils
+    $ aptitude install postgresql postgresql-server-dev-all python-dev apache-utils libxslt-devel
 
 Then create the postgres-user and give the correct permissions:
 
@@ -60,7 +60,9 @@ Add the `contrib/sync.sh` to your crontab, by adding a symlink to it in your
 ### Sample Nginx-setup
 
 We here assume that the base-path is set to `/tv/`, that the service is running
-at port 12000 and that the source code is found at `/srv/teve`.
+at port 12000 and that the source code is found at `/srv/teve`. `fqn` means
+*fully qualified domain name* and should be the domain + subdomain that you are
+running the service on.
 
     server {
         listen 80;

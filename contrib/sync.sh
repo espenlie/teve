@@ -10,7 +10,7 @@ BASEDIR=$(dirname $0)
 CONFIG=$BASEDIR/../config.json
 
 # Update the DB
-psql -U $USER -f $BASEDIR/db.sql teve
+psql -U $USER -f $BASEDIR/db.sql -d teve
 
 # Run various scripts, fetching EPG and so forth.
 python $BASEDIR/epgfetch.py $CONFIG
