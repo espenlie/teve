@@ -775,10 +775,8 @@ func startChannel(ch Channel, u User, transcoding int) error {
 
 	// Check if we want to access with http or cubemap
 	access := "http"
-	address := ch.Address
 	if config.CubemapConfig != "" {
 		access += "{metacube}"
-		address = fmt.Sprintf("http://%s:%d/%s", config.Hostname, config.CubemapPort, u.Name)
 	}
 
 	// And start the new specified channel.
