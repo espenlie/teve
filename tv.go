@@ -1036,9 +1036,8 @@ func writeCubemapConfig(filename string) error {
 
 	// Write the config file
 	err := ioutil.WriteFile(filename, []byte(d), 0644)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
+	logMessage("info", fmt.Sprintf("Wrote new cubemap-config to %s", filename), nil)
 
 	// SIGHUP the cubemap service
 	pid, err := getPid("cubemap")
@@ -1046,9 +1045,7 @@ func writeCubemapConfig(filename string) error {
 		return errors.New(fmt.Sprintf("Could not send SIGHUP to cubemap, %s", err.Error()))
 	}
 	err = syscall.Kill(pid, syscall.SIGHUP)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 
 	return nil
 }
@@ -1065,7 +1062,12 @@ func main() {
 		config.CubemapConfig = *cubemap
 		err := writeCubemapConfig(*cubemap)
 		if err != nil {
-			logMessage("error", "Could not write cubemap-config and update service", err)
+			logMessage("info", "Got error re-execing cubemap", err)
+		}
+		for _, err := getPid("cubemap"); err != nil; {
+			sleepTime := 2
+			logMessage("info", fmt.Sprintf("Cubemap service not running. Waiting %d seconds before continuing", 2), nil)
+			time.Sleep(time.Duration(sleepTime) * time.Second)
 		}
 	}
 
