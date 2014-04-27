@@ -791,7 +791,7 @@ func startChannel(ch Channel, u User, transcoding int) error {
 		Name:      ch.Name,
 		Cmd:       cmd,
 		Transcode: transcoding,
-		Address:   address,
+		Address:   ch.Address,
 	}
 
 	err = writeCubemapConfig(config.CubemapConfig)
