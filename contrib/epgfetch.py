@@ -1,14 +1,8 @@
 #!/usr/bin/env python
 from lxml import objectify
-import json
-import urllib2
-import time
 from datetime import datetime, timedelta
-import gzip
-import StringIO
 from dateutil import parser
-import psycopg2
-import sys
+import json, urllib2, time, gzip, StringIO, psycopg2, sys
 
 def main():
     # Parse the config file.
@@ -17,10 +11,8 @@ def main():
       sys.exit(1)
     config = json.load(open(sys.argv[1]))
 
-    # Get the number of days to fetch EPG-data for in argv 2.
-    days = 1
-    if len(sys.argv) == 3:
-      days = int(sys.argv[2])
+    # Get the number of days to fetch EPG-data for in config.
+    days = config["EpgFetchDays"] if "EpgFetchDays" in config else 4
 
     channels = [
             { 'epg': 'aljazeera.net', 'ui': 'Al Jazeera Intl'},
@@ -60,8 +52,7 @@ def main():
 
             f = gzip.GzipFile(fileobj=compr, mode='rb')
             root = objectify.fromstring(f.read())
-            # print unicode(root["programme"]["title"])
-            if not 'programme' in [el.tag for el in root.iterchildren()]:
+            if not hasattr(root, 'programme'):
                 continue
             for programme in root["programme"]:
                 d = {}
@@ -70,8 +61,7 @@ def main():
                 title = unicode(programme["title"])
                 description = unicode(programme["desc"]) if hasattr(programme, "desc") else ""
                 ch = channel["ui"]
-                stmt = "INSERT INTO %s(start,stop,title,channel,description) " % (config["DBName"])
-                cur.execute(stmt + "VALUES(%s,%s,%s,%s,%s)",(start,stop,title.strip(),ch,description))
+                cur.execute("INSERT INTO epg(start,stop,title,channel,description) VALUES(%s,%s,%s,%s,%s)",(start,stop,title.strip(),ch,description))
     conn.commit()
     cur.close()
     conn.close()

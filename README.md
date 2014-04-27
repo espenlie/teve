@@ -1,56 +1,66 @@
 # teve
 
-### Start TV-service
+A HTTP streaming frontend for VLC, with features such as record/archive and
+subscriptions - making it a complete DVR-solution for HTTP/Multicast streams.
 
-If running for first time, then first install go packages:
+The frontend language in Norwegian, but for some reason the README is in
+English.
 
-`$ go get`
+A working demo is available at: http://demo:password@tv.schistad.info
 
-If rebuilding binary then build first by:
+## Building and configuration
 
-`$ go build`
+First, make sure all dependencies are met:
 
-Then
+    $ aptitude install postgresql postgresql-server-dev-all python-dev apache-utils
 
-`$ ./teve`
+Then create the postgres-user and give the correct permissions:
 
-### Configuration
+    $ sudo su postgres -s /bin/bash
+    $ createuser tvadmin -P -D -R -S
+    $ createdb teve -O tvadmin
 
-You need add users and define your *hostname* in the `config.json` file.
+Edit the configuration file with your preferred contents and more importantly
+the DB password/username from previous step and the hostname:
 
-You also need a Postgresql DB called `epg` and a postgresql user called
-`epguser`.
-These are simply created by:
+    $ cp config.json.example config.json
 
-    $ createdb epg
-    $ createuser epguser
+Run the various scripts in order to fetch EPG-data, set correct URLs and so
+forth. For this you may want to create a virtual environment, if not you can
+skip the two first steps:
 
-Finally, you need users. They need to match the users defined in the
-`config.json` file and the first user is created by:
+    $ virtualenv contrib/venv
+    $ source contrib/venv/bin/activate
+    $ pip install -r contrib/requirements.txt
+    $ ./contrib/sync.sh [ tvadmin ]
+
+Create your first user for the systems basic auth by creating a .htpasswd file:
 
     $ htpasswd -c .htpasswd username
 
-Next users are created by:
+Fetch Go dependencies and build the binary. Make sure you have set the GOPATH
+correctly, here we assume the source code for `teve` is in `$HOME/go/src/teve`:
 
-    $ htpasswd .htpasswd username
+    $ export GOPATH=$HOME/go
+    $ go get
+    $ go build
+    $ ./teve
 
-Finally, the `recordings/` folder need to be created:
+Finally you should ensure that the `recordings` folder is present:
 
     $ mkdir recordings
 
-### Update EPG-data
+## Ensuring updated data
 
-Run this command once a day:
+Add the `contrib/sync.sh` to your crontab, by adding a symlink to it in your
+`/etc/cron.daily`:
 
-`$ ./epg/epgsync`
-
-To get started, you may find it simplest to just start a virtualenv:
-
-    $ virtualenv --system-site-packages epg/venv
-    $ source epg/venv/bin/activate
-    $ pip install -r epg/requirements.txt
+    ln -s contrib/sync.sh /etc/cron.daily/teve
 
 ### Sample Nginx-setup
+
+We here assume that the base-path is set to `/tv/`, that the service is running
+at port 12000 and that the source code is found at `/srv/teve`.
 
     server {
         listen 80;
@@ -66,21 +76,15 @@ To get started, you may find it simplest to just start a virtualenv:
             alias /srv/teve/static;
             expires 14d;
         }
+        location /tv/favicon.ico {
+            alias /srv/teve/static/favicon.ico;
+            expires 30d;
+        }
     }
 
-### Dependencies
+### Go dependencies
 
-Python:
-
-- lxml
-- python-dateutil
-- psycopg2
-
-Golang:
+These are downloaded and built with the `go get` command.
 
 - [pq](http://godoc.org/github.com/lib/pq)
 - [go-http-auth](https://github.com/abbot/go-http-auth/)
-
-Unix:
-
-- PostgreSQL (`apt-get install postgresql`)
