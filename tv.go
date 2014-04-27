@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"log"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -109,11 +110,20 @@ func loadConfig(filename string) Config {
 }
 
 func logMessage(level, msg string, err error) {
+	// Uniform level strings
+	level = strings.ToUpper(level)
+
+	// Get the error message
 	e := ""
-	if err != nil {
-		e = ": " + err.Error()
+	if err != nil { e = ":" + err.Error() }
+
+	// Quit the program if we get an error
+	if (level == "ERROR") {
+		log.Fatalf("[%s] %s %s\n", level, msg, e)
 	}
-	fmt.Printf("[%v] %v%v\n", strings.ToUpper(level), msg, e)
+
+	// Else we just print the messgae to stdout.
+	log.Printf("[%s] %s %s\n", level, msg, e)
 }
 
 func getTranscoding(trans string) int {
