@@ -4,17 +4,19 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	auth "github.com/abbot/go-http-auth"
 	_ "github.com/lib/pq"
 	"html/template"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"os"
-	"log"
 	"os/exec"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -55,6 +57,8 @@ type Config struct {
 	DBUser           string
 	DBPass           string
 	Debug            bool
+	CubemapConfig    string
+	CubemapPort      int
 }
 
 type Command struct {
@@ -65,11 +69,11 @@ type Command struct {
 }
 
 type EPG struct {
-	Title     string
-	Start     string
-	Stop      string
-	StartLong string
-	StopLong  string
+	Title       string
+	Start       string
+	Stop        string
+	StartLong   string
+	StopLong    string
 	Description string
 }
 
@@ -100,11 +104,11 @@ var recordings = make(map[int64]Recording)
 func loadConfig(filename string) Config {
 	file, err := ioutil.ReadFile(filename)
 	if err != nil {
-		fmt.Println("Problemer med å lese config-fil: ", err)
+		logMessage("error", "Problemer med å lese config-fil", err)
 	}
 	err = json.Unmarshal(file, &config)
 	if err != nil {
-		fmt.Println("Problemer med å pakke ut config: ", err)
+		logMessage("error", "Problemer med å pakke ut config", err)
 	}
 	return config
 }
@@ -115,11 +119,13 @@ func logMessage(level, msg string, err error) {
 
 	// Get the error message
 	e := ""
-	if err != nil { e = ":" + err.Error() }
+	if err != nil {
+		e = ": " + err.Error()
+	}
 
 	// Quit the program if we get an error
-	if (level == "ERROR") {
-		log.Fatalf("[%s] %s %s\n", level, msg, e)
+	if level == "ERROR" {
+		log.Fatalf("[%s] %s%s\n", level, msg, e)
 	}
 
 	// Else we just print the messgae to stdout.
@@ -259,21 +265,17 @@ func getVLCstr(transcoding int, address, dst, access string) string {
 	return command
 }
 
-func startUniStream(channel Channel, user User, transcoding int) error {
+func startUniStream(channel Channel, user User, transcoding int, access string) (*exec.Cmd, error) {
+	var cmd *exec.Cmd
+
 	userSuffix := fmt.Sprintf(":%v%v/%v", config.StreamingPort, user.Id, user.Name)
-	command := getVLCstr(transcoding, channel.Address, userSuffix, "http")
-	cmd := exec.Command("bash", "-c", command)
+	command := getVLCstr(transcoding, channel.Address, userSuffix, access)
+	cmd = exec.Command("bash", "-c", command)
 	err := cmd.Start()
 	if err != nil {
-		return err
+		return cmd, err
 	}
-	streams[user.Name] = Command{
-		Name:      channel.Name,
-		Cmd:       cmd,
-		Transcode: transcoding,
-		Address:   channel.Address,
-	}
-	return nil
+	return cmd, nil
 }
 
 func killUniStream(user User) error {
@@ -300,8 +302,7 @@ func zeroPad(n string) string {
 	return n
 }
 
-func getUser(r *auth.AuthenticatedRequest) (User, error) {
-	username := r.Username
+func getUserFromName(username string) (User, error) {
 	f, err := ioutil.ReadFile(".htpasswd")
 	if err != nil {
 		return User{}, err
@@ -316,6 +317,10 @@ func getUser(r *auth.AuthenticatedRequest) (User, error) {
 		}
 	}
 	return User{}, errors.New("Did not find user '" + username + "' authenticated from Basic Auth.")
+}
+
+func getUserFromRequest(r *auth.AuthenticatedRequest) (User, error) {
+	return getUserFromName(r.Username)
 }
 
 func getChannel(channel_name, username string) (*Channel, error) {
@@ -360,18 +365,18 @@ func getEpgData(numEpg int) {
 			var title, description string
 			var start, stop time.Time
 			err = rows.Scan(&title, &start, &stop, &description)
-			if (err != nil) {
+			if err != nil {
 				logMessage("error", "Could not get EPG-data from DB", err)
 				return
 			}
 			short_form := "15:04"
 			long_form := "2006-01-02 15:04"
 			epg := EPG{
-				Title:     title,
-				Start:     start.Format(short_form),
-				Stop:      stop.Format(short_form),
-				StartLong: start.Format(long_form),
-				StopLong:  stop.Format(long_form),
+				Title:       title,
+				Start:       start.Format(short_form),
+				Stop:        stop.Format(short_form),
+				StartLong:   start.Format(long_form),
+				StopLong:    stop.Format(long_form),
 				Description: description,
 			}
 			arr[i].EPGlist = append(arr[i].EPGlist, epg)
@@ -489,7 +494,7 @@ func startRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) 
 	title := r.FormValue("title")
 	channel := r.FormValue("channel")
 	transcode := r.FormValue("transcode")
-	user, _ := getUser(r)
+	user, _ := getUserFromRequest(r)
 
 	go startRecording(start, stop, user.Name, title, channel, transcode)
 	http.Redirect(w, &r.Request, config.BaseUrl, 302)
@@ -768,10 +773,30 @@ func startChannel(ch Channel, u User, transcoding int) error {
 		return err
 	}
 
+	// Check if we want to access with http or cubemap
+	access := "http"
+	address := ch.Address
+	if config.CubemapConfig != "" {
+		access += "{metacube}"
+		address = fmt.Sprintf("http://%s:%d/%s", config.Hostname, config.CubemapPort, u.Name)
+	}
+
 	// And start the new specified channel.
-	err = startUniStream(ch, u, transcoding)
+	cmd, err := startUniStream(ch, u, transcoding, access)
 	if err != nil {
 		return err
+	}
+
+	streams[u.Name] = Command{
+		Name:      ch.Name,
+		Cmd:       cmd,
+		Transcode: transcoding,
+		Address:   address,
+	}
+
+	err = writeCubemapConfig(config.CubemapConfig)
+	if err != nil {
+		logMessage("error", "Could not update cubemap-config", err)
 	}
 
 	return nil
@@ -800,7 +825,7 @@ func addChannelHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func startExternalStream(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
-	user, err := getUser(r)
+	user, err := getUserFromRequest(r)
 	if err != nil {
 		logMessage("error", "Authentication problem", err)
 		http.Redirect(w, &r.Request, config.BaseUrl, 302)
@@ -838,7 +863,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	}
 
 	// Ensure user that has logged in, is in the system.
-	user, err := getUser(r)
+	user, err := getUserFromRequest(r)
 	if err != nil {
 		logMessage("error", "Authentication problem", err)
 		return
@@ -918,6 +943,12 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		logMessage("error", "Could not get alle programs from DB", err)
 	}
 
+	// Get the URL for this user.
+	userURL := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
+	if config.CubemapConfig != "" {
+		userURL = fmt.Sprintf("http://%s:%d/%s", config.Hostname, config.CubemapPort, user.Name)
+	}
+
 	// Get the recordings for this user.
 	d["Recordings"] = recordings
 	d["RecordingsFolder"] = config.RecordingsFolder
@@ -930,7 +961,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	d["Transcoding"] = currentTranscoding
 	d["Subscriptions"] = subscriptions
 	d["Programs"] = programs
-	d["URL"] = fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
+	d["URL"] = userURL
 	if currentChannel != "" {
 		d["Running"] = true
 	} else {
@@ -946,8 +977,80 @@ func countStream(pid int, userid string) string {
 	return strings.TrimSpace(string(out))
 }
 
+func getPid(serviceName string) (int, error) {
+	// Ask bash for the PID.
+	spid, err := exec.Command("bash", "-c", "pidof cubemap|head -n 1").Output()
+
+	// Check if service is running.
+	if len(spid) == 0 {
+		return -1, errors.New("Service not found")
+	}
+
+	// Convert to int and return
+	pid, err := strconv.Atoi(string(spid))
+	if err != nil {
+		return -1, err
+	}
+	return pid, nil
+}
+
+func writeCubemapConfig(filename string) error {
+	if filename == "" {
+		// The filename is empty. So we will not update the config.
+		// Nor will we return an error, we just ignore everything.
+		return nil
+	}
+
+	// Write a config file for cubemap
+	d := "num_servers=1\n"
+	d += "port 9094\n"
+	d += "stats_file cubemap.stats\n"
+	d += "stats_interval 60\n"
+	d += "input_stats_file cubemap-input.stats\n"
+	d += "input_stats_interval 60\n"
+	d += "access_log access.log\n"
+	d += "error_log type=file filename=cubemap.log\n"
+	d += "error_log type=syslog\n"
+	d += "error_log type=console\n"
+
+	// Add all streams to the config-file.
+	for username, _ := range streams {
+		u, err := getUserFromName(username)
+		if err != nil {
+			return err
+		}
+
+		d += fmt.Sprintf("stream /%s src=http://%s:%s%s/%s encoding=metacube", u.Name, config.Hostname, config.StreamingPort, u.Id, u.Name)
+	}
+
+	// SIGHUP the cubemap service
+	pid, err := getPid("cubemap")
+	if err != nil {
+		return errors.New(fmt.Sprintf("Could not send SIGHIP to cubemap, %s", err.Error()))
+	}
+	err = syscall.Kill(pid, syscall.SIGHUP)
+	if err != nil {
+		return err
+	}
+
+	return ioutil.WriteFile(filename, []byte(d), 0644)
+}
+
 func main() {
+	var cubemap = flag.String("cubemap", "", "Use cubemap as a VLC-reflector")
+	flag.Parse()
+
+	// First thing to do, read the configuration file.
 	config = loadConfig("config.json")
+
+	// Check if we want to use cubemap as reflector
+	if *cubemap != "" {
+		config.CubemapConfig = *cubemap
+		err := writeCubemapConfig(*cubemap)
+		if err != nil {
+			logMessage("error", "Could not write cubemap-config and update service", err)
+		}
+	}
 
 	// The server has (re)started, so we load in the planned recordings.
 	loadPlannedRecordings()
