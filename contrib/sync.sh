@@ -2,7 +2,7 @@
 
 # Check if we pass a user that owns the teve tables.
 USER=tvadmin
-if [ "$#" -ne 1 ]; then
+if [ "$#" -eq 1 ]; then
   USER=$1
 fi
 
