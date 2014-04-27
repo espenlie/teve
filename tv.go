@@ -161,9 +161,13 @@ func getNorwegianWeekday(day int) string {
 	return dict[day]
 }
 
-func loadPlannedRecordings() {
+func getDatabaseHandler() (*sql.DB, error) {
 	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
+	return sql.Open("postgres", dboptions)
+}
+
+func loadPlannedRecordings() {
+	dbh, err := getDatabaseHandler()
 	if err != nil {
 		logMessage("warn", "Cant connect to the PostgreSQL-DB at "+config.DBHost, err)
 		return
@@ -202,11 +206,9 @@ func loadPlannedRecordings() {
 }
 
 func insertRecording(username, title, channel, transcode string, start, stop time.Time) (int64, error) {
-	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		return -1, err
-	}
+	dbh, err := getDatabaseHandler()
+	if err != nil { return -1, err }
+
 	tx, err := dbh.Begin()
 	id := int64(-1)
 	err = tx.QueryRow(`SELECT id FROM recordings
@@ -234,11 +236,9 @@ func insertRecording(username, title, channel, transcode string, start, stop tim
 
 func removeRecording(id int64) error {
 	// Delete from the DB
-	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		return err
-	}
+	dbh, err := getDatabaseHandler()
+	if err != nil { return err }
+
 	tx, _ := dbh.Begin()
 	_, err = tx.Exec("DELETE FROM recordings WHERE id = $1", id)
 	if err != nil {
@@ -343,8 +343,7 @@ func getChannel(channel_name, username string) (*Channel, error) {
 }
 
 func getEpgData(numEpg int) {
-	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
+	dbh, err := getDatabaseHandler()
 	if err != nil {
 		logMessage("error", "Could not connect to EPG-db", err)
 		return
@@ -522,11 +521,8 @@ func deleteRecording(name string) error {
 
 func insertSubscription(title string, weekday int, interval []int, channel string, username string) error {
 	// Connect to DB
-	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		return err
-	}
+	dbh, err := getDatabaseHandler()
+	if err != nil { return err }
 
 	// Insert the subscription.
 	tx, err := dbh.Begin()
@@ -597,11 +593,8 @@ func removeSubscriptionHandler(w http.ResponseWriter, r *auth.AuthenticatedReque
 
 func removeSubscription(username string, id int64) error {
 	// Connect to the DB
-	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		return err
-	}
+	dbh, err := getDatabaseHandler()
+	if err != nil { return err }
 
 	// Check that the username owns this recording.
 	dbh.QueryRow("SELECT * FROM subscriptions WHERE username = $1 AND id = $2", username, id)
@@ -622,11 +615,8 @@ func removeSubscription(username string, id int64) error {
 
 func checkSubscriptions() error {
 	// Connect to the DB
-	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		return err
-	}
+	dbh, err := getDatabaseHandler()
+	if err != nil { return err }
 
 	// Time stamp used in the recording thread.
 	long_form := "2006-01-02 15:04"
@@ -667,11 +657,8 @@ func checkSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 
 func getSeriesSubscriptions(username string) ([]Subscription, error) {
 	// Connect to DB
-	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		return nil, err
-	}
+	dbh, err := getDatabaseHandler()
+	if err != nil { return nil, err }
 
 	// Get all subs for this user.
 	rows, err := dbh.Query("SELECT id, title, interval_start, interval_stop, weekday, channel FROM subscriptions WHERE username = $1", username)
@@ -711,11 +698,8 @@ func getAllPrograms() ([]string, error) {
 	var programs []string
 
 	// Connect to DB
-	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		return programs, err
-	}
+	dbh, err := getDatabaseHandler()
+	if err != nil { return programs, err }
 
 	// Select all existing programs
 	rows, err := dbh.Query("SELECT DISTINCT title FROM epg ORDER BY title")
