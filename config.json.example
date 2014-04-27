@@ -25,7 +25,7 @@
   "Hostname": "foobar.no",
   "BaseUrl" : "/",
 
-  "StreamingPort": "1200",
+  "StreamingPort": "120",
 
   "WebPort": "8000",
 
