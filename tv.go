@@ -1005,7 +1005,7 @@ func writeCubemapConfig(filename string) error {
 	}
 
 	// Write a config file for cubemap
-	d := "num_servers=1\n"
+	d := "num_servers 1\n"
 	d += "port 9094\n"
 	d += "stats_file cubemap.stats\n"
 	d += "stats_interval 60\n"
