@@ -6,7 +6,7 @@ if [ "$#" -eq 1 ]; then
   USER=$1
 fi
 
-BASEDIR=$(dirname $0)
+BASEDIR=$(pwd -P)
 CONFIG=$BASEDIR/../config.json
 
 # Update the DB
