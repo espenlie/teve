@@ -37,6 +37,8 @@
   
   "SubIntervalSize": 2,
 
+  "CubemapPort": 9094,
+
   "DBHost" : "localhost",
   "DBName" : "epg",
   "DBUser" : "epguser",
