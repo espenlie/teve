@@ -1026,17 +1026,19 @@ func writeCubemapConfig(filename string) error {
 		d += fmt.Sprintf("stream /%s src=http://%s:%s%s/%s encoding=metacube", u.Name, config.Hostname, config.StreamingPort, u.Id, u.Name)
 	}
 
+	// Write the config file
+	err := ioutil.WriteFile(filename, []byte(d), 0644)
+	if (err != nil) { return err }
+
 	// SIGHUP the cubemap service
 	pid, err := getPid("cubemap")
 	if err != nil {
 		return errors.New(fmt.Sprintf("Could not send SIGHUP to cubemap, %s", err.Error()))
 	}
 	err = syscall.Kill(pid, syscall.SIGHUP)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 
-	return ioutil.WriteFile(filename, []byte(d), 0644)
+	return nil
 }
 
 func main() {
