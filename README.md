@@ -46,10 +46,6 @@ correctly, here we assume the source code for `teve` is in `$HOME/go/src/teve`:
     $ go build
     $ ./teve
 
-Finally you should ensure that the `recordings` folder is present:
-
-    $ mkdir recordings
-
 ## Ensuring updated data
 
 Add the `contrib/sync.sh` to your crontab, by adding a symlink to it in your

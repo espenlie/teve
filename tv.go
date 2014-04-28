@@ -746,6 +746,14 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		http.Redirect(w, &r.Request, base_url, 302)
 	}
 
+	// Ensure the recordings-folder exists.
+	if _, err := os.Stat(config.RecordingsFolder); err != nil {
+		err := os.Mkdir(config.RecordingsFolder, 0755)
+		if (err != nil) {
+			logMessage("error", "Could not create recordingsfolder", err)
+		}
+	}
+
 	// Get all recordings in the archive folder.
 	recordings, err := ioutil.ReadDir(config.RecordingsFolder)
 
