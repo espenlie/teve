@@ -76,11 +76,12 @@ body {
 tr.header td {
   font-weight: bold;
 }
+.pure-table {
+  border-color: #ddd;
+}
 .programme-list {
-  /*border-right:none;*/
   width:100%;
   border-top:none;
-  border-bottom:none;
 }
 .programme-list .prop {
   width:15px;
@@ -127,8 +128,8 @@ tr.header td {
   margin-left: 10px;
 }
 .record-button {
-    text-decoration: none;
-    color: #d9534f;
+  text-decoration: none;
+  color: #d9534f;
 }
 @media only screen and (max-width: 800px) {
   .home-menu li {
