@@ -170,14 +170,9 @@ func logMessage(level, msg string, err error) {
 }
 
 func getTranscoding(trans string) int {
-	var err error
+	// Returns 0 if we cant parse string, if not it returns parsed integer.
 	transcoding := 0
-	if trans != "0" {
-		transcoding, err = strconv.Atoi(trans)
-		if err != nil {
-			transcoding = 0
-		}
-	}
+	transcoding, _ = strconv.Atoi(trans)
 	return transcoding
 }
 
@@ -219,9 +214,7 @@ func loadPlannedRecordings() error {
 	}
 
 	rows, err = dbh.Query("SELECT start,stop,username,title,channel,transcode FROM recordings")
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 
 	cnt := 0
 	for rows.Next() {
@@ -240,7 +233,7 @@ func insertRecording(username, title, channel, transcode string, start, stop tim
 	ensureDbhConnection()
 
 	tx, err := dbh.Begin()
-	id := int64(-1)
+	var id int64
 	err = tx.QueryRow(`SELECT id FROM recordings
                      WHERE title = $1
                      AND channel = $2
@@ -253,11 +246,11 @@ func insertRecording(username, title, channel, transcode string, start, stop tim
     ($1,$2,$3,$4,$5,$6) RETURNING id`,
 			start, stop, username, title, channel, transcode).Scan(&id)
 		if err != nil {
-			return -1, err
+			return id, err
 		}
 	} else if err != nil {
 		// There was an actual DB-error.
-		return -1, err
+		return id, err
 	}
 	// We have either inserted the recording successfully, or the recording
 	// already exists and we return the id.
@@ -270,9 +263,7 @@ func removeRecording(id int64) error {
 
 	tx, _ := dbh.Begin()
 	_, err := tx.Exec("DELETE FROM recordings WHERE id = $1", id)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 	_ = tx.Commit()
 
 	// Delete from cmd and kill command.
@@ -301,10 +292,7 @@ func startUniStream(channel Channel, user User, transcoding int, access string) 
 	command := getVLCstr(transcoding, channel.Address, userSuffix, access)
 	cmd = exec.Command("bash", "-c", command)
 	err := cmd.Start()
-	if err != nil {
-		return cmd, err
-	}
-	return cmd, nil
+	return cmd, err
 }
 
 func killUniStream(user User) error {
@@ -325,6 +313,7 @@ func killStream(cmd *exec.Cmd) error {
 }
 
 func zeroPad(n string) string {
+	// Makes the string '1' become '01'.
 	if len(n) == 1 {
 		return fmt.Sprintf("0%v", n)
 	}
@@ -332,10 +321,10 @@ func zeroPad(n string) string {
 }
 
 func getUserFromName(username string) (User, error) {
-	f, err := ioutil.ReadFile(".htpasswd")
-	if err != nil {
-		return User{}, err
-	}
+	// Creates a User-object and gives ID based on placement in PasswordFile.
+	f, err := ioutil.ReadFile(config.PasswordFile)
+	if err != nil { return User{}, err }
+
 	lines := strings.Split(string(f), "\n")
 	for id, line := range lines[0 : len(lines)-1] {
 		s := strings.SplitN(line, ":", 2)
@@ -539,11 +528,7 @@ func startVlcHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 }
 
 func deleteRecording(name string) error {
-	err := os.Remove(config.RecordingsFolder + "/" + name)
-	if err != nil {
-		return err
-	}
-	return nil
+	return os.Remove(config.RecordingsFolder + "/" + name)
 }
 
 func insertSubscription(title string, weekday int, interval []int, channel string, username string) error {
@@ -556,9 +541,7 @@ func insertSubscription(title string, weekday int, interval []int, channel strin
 	title,interval_start,interval_stop,weekday,channel,username) VALUES
 	($1,$2,$3,$4,$5,$6)`,
 		title, interval[0], interval[1], weekday, channel, username)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 	tx.Commit()
 
 	return nil
@@ -628,9 +611,8 @@ func removeSubscription(username string, id int64) error {
 	}
 
 	tx, err := dbh.Begin()
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
+
 	_, err = tx.Exec("DELETE FROM subscriptions WHERE id = $1", id)
 	if err != nil {
 		return err
@@ -658,13 +640,13 @@ func checkSubscriptions() error {
 											AND extract(dow from epg.start) = subscriptions.weekday
 											AND epg.channel = subscriptions.channel`, s, s)
 	rows, err := dbh.Query(stmt)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 	for rows.Next() {
 		var title, channel, username string
 		var start, stop time.Time
 		rows.Scan(&start, &stop, &title, &channel, &username)
+
+		// Start the recording, and for now default to 0 transcoding.
 		go startRecording(start.Format(long_form), stop.Format(long_form), username, title, channel, "0")
 	}
 
@@ -676,6 +658,7 @@ func checkSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logMessage("error", "Could not refresh and check subscriptions", err)
 	}
+	// This is accessed by clients, as an API (or whatever) -- so just output something.
 	fmt.Fprintf(w, "Ok.")
 }
 
@@ -705,6 +688,8 @@ func getSeriesSubscriptions(username string) ([]Subscription, error) {
 
 		// Translate the weekdays to Norwegian.
 		weekday_nor := getNorwegianWeekday(weekday)
+
+		// Add the subscription to the array of subscriptions.
 		subs = append(subs, Subscription{
 			Id:        int64(id),
 			Title:     title,
@@ -718,14 +703,11 @@ func getSeriesSubscriptions(username string) ([]Subscription, error) {
 }
 
 func getAllPrograms() ([]string, error) {
-	var programs []string
-
-	// Connect to DB
-	// dbh, err := getDatabaseHandler()
-	// if err != nil {
-	// 	return programs, err
-	// }
+	// We'll use the DB, so ensure it is up.
 	ensureDbhConnection()
+
+	// Array holding the program titles.
+	var programs []string
 
 	// Select all existing programs
 	rows, err := dbh.Query("SELECT DISTINCT title FROM epg ORDER BY title")
@@ -733,6 +715,7 @@ func getAllPrograms() ([]string, error) {
 		return programs, err
 	}
 
+	// Add each title to the array.
 	for rows.Next() {
 		var title string
 		_ = rows.Scan(&title)
@@ -748,6 +731,8 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		logMessage("error", "Could not parse template file for archive", err)
 		return
 	}
+
+	// Check if we requested to delete a file.
 	deleteform := r.FormValue("delete")
 	if deleteform != "" {
 		err := deleteRecording(deleteform)
@@ -755,18 +740,28 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 			logMessage("error", "Could not delete recording", err)
 			return
 		}
+
+		// File deleted, redirect back to archive.
 		base_url := fmt.Sprintf("%varchive", config.BaseUrl)
 		http.Redirect(w, &r.Request, base_url, 302)
 	}
-	d := make(map[string]interface{})
+
+	// Get all recordings in the archive folder.
 	recordings, err := ioutil.ReadDir(config.RecordingsFolder)
+
+	// Make an empty file.
 	fs := make([]File, 0)
-	baseurl := fmt.Sprintf("http://%v%vvlc?url=", config.Hostname, config.BaseUrl)
+
+	baseurl := "http://" + r.Host + r.URL.Path + "?url="
 	for _, file := range recordings {
-		fileurl := fmt.Sprintf("%vhttp://%v%vrecordings/%v", baseurl, config.Hostname, config.BaseUrl, file.Name())
-		streamurl := fmt.Sprintf("http://%v%vrecordings/%v", config.Hostname, config.BaseUrl, file.Name())
+		streamurl := "http://" + r.Host + config.BaseUrl + config.RecordingsFolder + "/" + file.Name()
+		fileurl := baseurl + streamurl
+		// Add the file to array and display MB.
 		fs = append(fs, File{Name: file.Name(), Size: (file.Size() / 1000000), Url: fileurl, SUrl: streamurl})
 	}
+
+	// Map holding our parameters.
+	d := make(map[string]interface{})
 	d["Files"] = fs
 	d["BaseUrl"] = config.BaseUrl
 	if err != nil {
@@ -795,6 +790,7 @@ func startChannel(ch Channel, u User, transcoding int) error {
 		return err
 	}
 
+	// Add the new stream to as the "current running stream" for this user.
 	streams[u.Name] = Command{
 		Name:      ch.Name,
 		Cmd:       cmd,
@@ -802,6 +798,8 @@ func startChannel(ch Channel, u User, transcoding int) error {
 		Address:   ch.Address,
 	}
 
+	// Write cubemap-config, this is ignored if config.CubemapConfig is empty.
+	// That is, it's ignored if we don't have Cubemap enabled.
 	err = writeCubemapConfig(config.CubemapConfig)
 	if err != nil {
 		logMessage("error", "Could not update cubemap-config", err)
@@ -841,9 +839,7 @@ func startExternalStream(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 
 	// Construct a custom channel, for this purpose
 	n := r.FormValue("name")
-	if n == "" {
-		n = "Egendefinert kanal"
-	}
+	if n == "" { n = "Egendefinert kanal" }
 
 	// Get the transcoding, defaulting to 0.
 	transcoding := getTranscoding(r.FormValue("transcoding"))
@@ -863,7 +859,6 @@ func startExternalStream(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 
 func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Show running channel and list of channels.
-	d := make(map[string]interface{})
 	t, err := template.ParseFiles("templates/index.html")
 	if err != nil {
 		logMessage("error", "Could not parse template file", err)
@@ -894,14 +889,10 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	}
 
 	// Get number of elements to show in the EPG feed
-	numEpg := 3
 	form_epg := r.FormValue("num")
-	if form_epg != "" {
-		numEpg, err = strconv.Atoi(form_epg)
-		if err != nil {
-			numEpg = 3
-		}
-	}
+	numEpg := 3
+	numEpg, _ = strconv.Atoi(form_epg)
+
 	getEpgData(numEpg)
 
 	// Check that the form-values are non empty and that they are different from
@@ -924,12 +915,12 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 		http.Redirect(w, &(r.Request), config.BaseUrl, 302)
 	}
 
+	// Check if requested to kill the channel, currently running..
 	kill_index := r.FormValue("kchannel")
 	if kill_index != "" {
 		err := killUniStream(user)
 		if err != nil {
 			logMessage("error", "Could not kill stream", err)
-			return
 		}
 		http.Redirect(w, &(r.Request), config.BaseUrl, 302)
 	}
@@ -958,6 +949,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	}
 
 	// Get the recordings for this user.
+	d := make(map[string]interface{})
 	d["Recordings"] = recordings
 	d["RecordingsFolder"] = config.RecordingsFolder
 	d["Viewers"] = currentViewers
@@ -970,11 +962,8 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	d["Subscriptions"] = subscriptions
 	d["Programs"] = programs
 	d["URL"] = userURL
-	if currentChannel != "" {
-		d["Running"] = true
-	} else {
-		d["Running"] = false
-	}
+	d["Running"] = (currentChannel != "")
+
 	t.Execute(w, d)
 }
 
@@ -1072,9 +1061,8 @@ func main() {
 			logMessage("info", "Got error re-execing cubemap", err)
 		}
 		for _, err := getPid("cubemap"); err != nil; {
-			sleepTime := 2
-			logMessage("info", fmt.Sprintf("Cubemap service not running. Waiting %d seconds before continuing", 2), nil)
-			time.Sleep(time.Duration(sleepTime) * time.Second)
+			logMessage("info", "Cubemap service not running. Waiting 2 seconds before continuing", nil)
+			time.Sleep(2 * time.Second)
 		}
 	}
 
