@@ -718,7 +718,8 @@ func getAllPrograms() ([]string, error) {
 	// Add each title to the array.
 	for rows.Next() {
 		var title string
-		_ = rows.Scan(&title)
+		err := rows.Scan(&title)
+		if (err != nil) { return programs, err }
 		programs = append(programs, title)
 	}
 	return programs, nil
@@ -898,8 +899,10 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 
 	// Get number of elements to show in the EPG feed
 	form_epg := r.FormValue("num")
-	numEpg := 3
-	numEpg, _ = strconv.Atoi(form_epg)
+	numEpg, err := strconv.Atoi(form_epg)
+	if (err != nil) {
+		numEpg = 3
+	}
 
 	getEpgData(numEpg)
 
@@ -1044,9 +1047,7 @@ func writeCubemapConfig(filename string) error {
 		return errors.New(fmt.Sprintf("Could not send SIGHUP to cubemap, %s", err.Error()))
 	}
 	err = syscall.Kill(pid, syscall.SIGHUP)
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 
 	return nil
 }
