@@ -104,7 +104,7 @@ var dbh *sql.DB
 
 func ensureDbhConnection() {
 	var err error
-	if dbh == nil {
+	for dbh == nil {
 		// The DB has probably not been intitialized. Probably since we've just booted the application.
 		dbh, err = getDatabaseHandler()
 		if err != nil {
