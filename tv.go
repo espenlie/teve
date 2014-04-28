@@ -100,6 +100,43 @@ var config Config
 
 var streams = make(map[string]Command)
 var recordings = make(map[int64]Recording)
+var dbh *sql.DB
+
+func ensureDbhConnection() {
+	var err error
+	if dbh == nil {
+		// The DB has probably not been intitialized. Probably since we've just booted the application.
+		dbh, err = getDatabaseHandler()
+		if err != nil {
+			logMessage("error", "Could not initialize DB-connection", err)
+		}
+	}
+	for connerr := dbh.Ping(); connerr != nil; {
+		// We can't seem to get a connection. Try to get it.
+		dbh, err = getDatabaseHandler()
+		if err != nil {
+			// And we try again and again, until it responds.
+			logMessage("warn", "Can't connect to the Postgresql DB, trying again in 2 seconds", err)
+			time.Sleep(2 * time.Second)
+		}
+	}
+}
+
+func getDatabaseHandler() (*sql.DB, error) {
+	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
+	dbh, err := sql.Open("postgres", dboptions)
+	if err != nil {
+		return nil, err
+	}
+
+	// Check that the DB is responding.
+	err = dbh.Ping()
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("PostgreSQL not responding: %v", err))
+	}
+
+	return dbh, nil
+}
 
 func loadConfig(filename string) Config {
 	file, err := ioutil.ReadFile(filename)
@@ -161,27 +198,8 @@ func getNorwegianWeekday(day int) string {
 	return dict[day]
 }
 
-func getDatabaseHandler() (*sql.DB, error) {
-	dboptions := fmt.Sprintf("host=%v dbname=%v user= %v password=%v sslmode=disable", config.DBHost, config.DBName, config.DBUser, config.DBPass)
-	dbh, err := sql.Open("postgres", dboptions)
-	if err != nil {
-		return nil, err
-	}
-
-	// Check that the DB is responding.
-	err = dbh.Ping()
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("PostgreSQL not responding: %v", err))
-	}
-
-	return dbh, nil
-}
-
 func loadPlannedRecordings() error {
-	dbh, err := getDatabaseHandler()
-	if err != nil {
-		return err
-	}
+	ensureDbhConnection()
 
 	long_form := "2006-01-02 15:04"
 
@@ -218,10 +236,8 @@ func loadPlannedRecordings() error {
 }
 
 func insertRecording(username, title, channel, transcode string, start, stop time.Time) (int64, error) {
-	dbh, err := getDatabaseHandler()
-	if err != nil {
-		return -1, err
-	}
+	// We'll use the DB, so ensure it is up.
+	ensureDbhConnection()
 
 	tx, err := dbh.Begin()
 	id := int64(-1)
@@ -249,14 +265,11 @@ func insertRecording(username, title, channel, transcode string, start, stop tim
 }
 
 func removeRecording(id int64) error {
-	// Delete from the DB
-	dbh, err := getDatabaseHandler()
-	if err != nil {
-		return err
-	}
+	// We'll use the DB, so ensure it is up.
+	ensureDbhConnection()
 
 	tx, _ := dbh.Begin()
-	_, err = tx.Exec("DELETE FROM recordings WHERE id = $1", id)
+	_, err := tx.Exec("DELETE FROM recordings WHERE id = $1", id)
 	if err != nil {
 		return err
 	}
@@ -359,11 +372,9 @@ func getChannel(channel_name, username string) (*Channel, error) {
 }
 
 func getEpgData(numEpg int) {
-	dbh, err := getDatabaseHandler()
-	if err != nil {
-		logMessage("error", "Could not connect to EPG-db", err)
-		return
-	}
+	// We'll use the DB, so ensure it is up.
+	ensureDbhConnection()
+
 	for i, _ := range *(config.Channels) {
 		arr := *(config.Channels)
 		arr[i].EPGlist = []EPG{}
@@ -536,11 +547,8 @@ func deleteRecording(name string) error {
 }
 
 func insertSubscription(title string, weekday int, interval []int, channel string, username string) error {
-	// Connect to DB
-	dbh, err := getDatabaseHandler()
-	if err != nil {
-		return err
-	}
+	// We'll use the DB, so ensure it is up.
+	ensureDbhConnection()
 
 	// Insert the subscription.
 	tx, err := dbh.Begin()
@@ -610,11 +618,8 @@ func removeSubscriptionHandler(w http.ResponseWriter, r *auth.AuthenticatedReque
 }
 
 func removeSubscription(username string, id int64) error {
-	// Connect to the DB
-	dbh, err := getDatabaseHandler()
-	if err != nil {
-		return err
-	}
+	// We'll use the DB, so ensure it is up.
+	ensureDbhConnection()
 
 	// Check that the username owns this recording.
 	dbh.QueryRow("SELECT * FROM subscriptions WHERE username = $1 AND id = $2", username, id)
@@ -634,11 +639,8 @@ func removeSubscription(username string, id int64) error {
 }
 
 func checkSubscriptions() error {
-	// Connect to the DB
-	dbh, err := getDatabaseHandler()
-	if err != nil {
-		return err
-	}
+	// We'll use the DB, so ensure it is up.
+	ensureDbhConnection()
 
 	// Time stamp used in the recording thread.
 	long_form := "2006-01-02 15:04"
@@ -678,11 +680,8 @@ func checkSubscriptionsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func getSeriesSubscriptions(username string) ([]Subscription, error) {
-	// Connect to DB
-	dbh, err := getDatabaseHandler()
-	if err != nil {
-		return nil, err
-	}
+	// We'll use the DB, so ensure it is up.
+	ensureDbhConnection()
 
 	// Get all subs for this user.
 	rows, err := dbh.Query("SELECT id, title, interval_start, interval_stop, weekday, channel FROM subscriptions WHERE username = $1", username)
@@ -722,10 +721,11 @@ func getAllPrograms() ([]string, error) {
 	var programs []string
 
 	// Connect to DB
-	dbh, err := getDatabaseHandler()
-	if err != nil {
-		return programs, err
-	}
+	// dbh, err := getDatabaseHandler()
+	// if err != nil {
+	// 	return programs, err
+	// }
+	ensureDbhConnection()
 
 	// Select all existing programs
 	rows, err := dbh.Query("SELECT DISTINCT title FROM epg ORDER BY title")
@@ -1036,7 +1036,9 @@ func writeCubemapConfig(filename string) error {
 
 	// Write the config file
 	err := ioutil.WriteFile(filename, []byte(d), 0644)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	logMessage("info", fmt.Sprintf("Wrote new cubemap-config to %s", filename), nil)
 
 	// SIGHUP the cubemap service
@@ -1045,7 +1047,9 @@ func writeCubemapConfig(filename string) error {
 		return errors.New(fmt.Sprintf("Could not send SIGHUP to cubemap, %s", err.Error()))
 	}
 	err = syscall.Kill(pid, syscall.SIGHUP)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -1056,6 +1060,9 @@ func main() {
 
 	// First thing to do, read the configuration file.
 	config = loadConfig("config.json")
+
+	// Create the DBH
+	ensureDbhConnection()
 
 	// Check if we want to use cubemap as reflector
 	if *cubemap != "" {
