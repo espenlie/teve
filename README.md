@@ -68,7 +68,7 @@ it from source:
     $ git clone git://git.videolan.org/vlc.git
     $ cd vlc/
     $ ./bootstrap
-    $ ./configure --disable-dbus --disable-mad --disable-postproc --disable-a52 --disable-glx --disable-fribidi --disable-qt --disable-skins2 --enable-dvbpsi --enable-faad --disable-nls --disable-xcb --disable-sdl --disable-libgcrypt --disable-lua --disable-alsa --disable-v4l2 --enable-libgcrypt
+    $ ./configure --disable-dbus --disable-mad --disable-postproc --disable-a52 --disable-glx --disable-fribidi --disable-qt --disable-skins2 --enable-dvbpsi --enable-faad --disable-nls --disable-xcb --disable-sdl --disable-lua --disable-alsa --disable-v4l2 --enable-libgcrypt --enable-gnutls
     $ make -j4
     $ sudo make install
     $ sudo ldconfig
@@ -95,10 +95,84 @@ start the cubemap service and the teve-service, this time working:
     $ cubemap cubemap/cubemap.config
     $ ./teve --cubemap cubemap/cubemap.config
 
+### Using Go version > 1.2
+
+So, since Go pre 1.2 does not have Ping() implemented for database handlers,
+you will need to manually download it -- if not already provided by your OS.
+Yes, this is chore, and we're sorry, but the function is handy and quite
+necessary to not overload your DB with unecessary connects.
+
+Luckily, it is super simple to add a new version of Golang on your system, and
+you may even have multiple of them. In short you want to:
+
+    $ mkdir -p /usr/local/opt
+    $ cd /usr/local/opt
+    $ wget https://go.googlecode.com/files/go1.2.1.linux-amd64.tar.gz
+    $ tar xzf go1.2.1.linux-amd64.tar.gz
+    $ mv go go1.2.1
+    $ export GOROOT="/usr/local/opt"
+
+You may of course customize your paths and perhaps even add the GOROOT to your
+`.bashrc`-file.
+
+### Ensuring GNUTLS
+
+If you are trying to play TLS-protected content (that is `https://` streams)
+and VLC moans with the message:
+
+    [error] tls client: plugin not available
+
+Then this is probably because you have not installed `gnutls-bin` and perhaps
+it's a too old version for upstream VLC. Relevant lines from `configure.ac`:
+
+    PKG_CHECK_MODULES(GNUTLS, [gnutls >= 3.0.20]
+
+So, you will need GNUTLS version 3.0.20 or better. You can check which you have installed with:
+
+    aptitude show gnutls
+    # or if you fancy
+    dpkg -l | grep gnutls
+
+If you indeed have a too old binary, then you will have to build it youself :-(
+Here is a short guide, or whatever (note that the URLs are probably wrong when
+you are reading this, please check them yourself):
+
+    $ mkdir tmp; cd tmp
+    $ wget ftp://ftp.gnutls.org/gcrypt/gnutls/v3.2/gnutls-3.2.9.tar.xz
+    $ tar xf gnutls-3.2.9.tar.xz
+    $ cd gnutls-3.2.9
+    $ ./configure
+    $ make
+    $ sudo make install
+
+Upstream GNUTLS is dependent on libnettle, and wants nettle version 2.7 or
+newer. You probably want to build that too from source. Ain't Linux fun! So
+before `./configure` in last step:
+
+    $ cd ..
+    $ wget http://www.lysator.liu.se/~nisse/archive/nettle-2.7.1.tar.gz
+    $ tar xzf nettle-2.7.1.tar.gz
+    $ cd nettle-2.7.1
+    $ ./configure
+    $ make
+    $ sudo make install
+
+Whoa! Now we have gnutls, and you can build VLC again with the long
+`./configure` line, above in the cubemap section. Ensure that is indeed says:
+
+    (...)
+    checking for GNUTLS... yes
+    (...)
+
+And at the end of all this you should get something sensible when asking VLC
+for its installed modules:
+
+    $ vlc --list | grep gnutls
+
 ### Sample Nginx-setup
 
 We here assume that the base-path is set to `/tv/`, that the service is running
-at port 12000 and that the source code is found at `/srv/teve`. `fqn` means
+at port 12000 and that the source code is found at `/srv/teve`. `fqdn` means
 *fully qualified domain name* and should be the domain + subdomain that you are
 running the service on.
 
