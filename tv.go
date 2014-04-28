@@ -104,7 +104,7 @@ var dbh *sql.DB
 
 func ensureDbhConnection() {
 	var err error
-	if (dbh == nil) {
+	if dbh == nil {
 		// The DB has probably not been intitialized. Probably since we've just booted the application.
 		dbh, err = getDatabaseHandler()
 		if err != nil {
@@ -214,7 +214,9 @@ func loadPlannedRecordings() error {
 	}
 
 	rows, err = dbh.Query("SELECT start,stop,username,title,channel,transcode FROM recordings")
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	cnt := 0
 	for rows.Next() {
@@ -263,7 +265,9 @@ func removeRecording(id int64) error {
 
 	tx, _ := dbh.Begin()
 	_, err := tx.Exec("DELETE FROM recordings WHERE id = $1", id)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	_ = tx.Commit()
 
 	// Delete from cmd and kill command.
@@ -323,7 +327,9 @@ func zeroPad(n string) string {
 func getUserFromName(username string) (User, error) {
 	// Creates a User-object and gives ID based on placement in PasswordFile.
 	f, err := ioutil.ReadFile(config.PasswordFile)
-	if err != nil { return User{}, err }
+	if err != nil {
+		return User{}, err
+	}
 
 	lines := strings.Split(string(f), "\n")
 	for id, line := range lines[0 : len(lines)-1] {
@@ -541,7 +547,9 @@ func insertSubscription(title string, weekday int, interval []int, channel strin
 	title,interval_start,interval_stop,weekday,channel,username) VALUES
 	($1,$2,$3,$4,$5,$6)`,
 		title, interval[0], interval[1], weekday, channel, username)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	tx.Commit()
 
 	return nil
@@ -611,7 +619,9 @@ func removeSubscription(username string, id int64) error {
 	}
 
 	tx, err := dbh.Begin()
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	_, err = tx.Exec("DELETE FROM subscriptions WHERE id = $1", id)
 	if err != nil {
@@ -640,7 +650,9 @@ func checkSubscriptions() error {
 											AND extract(dow from epg.start) = subscriptions.weekday
 											AND epg.channel = subscriptions.channel`, s, s)
 	rows, err := dbh.Query(stmt)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 	for rows.Next() {
 		var title, channel, username string
 		var start, stop time.Time
@@ -719,7 +731,9 @@ func getAllPrograms() ([]string, error) {
 	for rows.Next() {
 		var title string
 		err := rows.Scan(&title)
-		if (err != nil) { return programs, err }
+		if err != nil {
+			return programs, err
+		}
 		programs = append(programs, title)
 	}
 	return programs, nil
@@ -750,7 +764,7 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Ensure the recordings-folder exists.
 	if _, err := os.Stat(config.RecordingsFolder); err != nil {
 		err := os.Mkdir(config.RecordingsFolder, 0755)
-		if (err != nil) {
+		if err != nil {
 			logMessage("error", "Could not create recordingsfolder", err)
 		}
 	}
@@ -848,7 +862,9 @@ func startExternalStream(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 
 	// Construct a custom channel, for this purpose
 	n := r.FormValue("name")
-	if n == "" { n = "Egendefinert kanal" }
+	if n == "" {
+		n = "Egendefinert kanal"
+	}
 
 	// Get the transcoding, defaulting to 0.
 	transcoding := getTranscoding(r.FormValue("transcoding"))
@@ -900,7 +916,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Get number of elements to show in the EPG feed
 	form_epg := r.FormValue("num")
 	numEpg, err := strconv.Atoi(form_epg)
-	if (err != nil) {
+	if err != nil {
 		numEpg = 3
 	}
 
@@ -1047,7 +1063,9 @@ func writeCubemapConfig(filename string) error {
 		return errors.New(fmt.Sprintf("Could not send SIGHUP to cubemap, %s", err.Error()))
 	}
 	err = syscall.Kill(pid, syscall.SIGHUP)
-	if err != nil { return err }
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
