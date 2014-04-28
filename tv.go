@@ -1047,7 +1047,7 @@ func writeCubemapConfig(filename string) error {
 			return err
 		}
 
-		d += fmt.Sprintf("stream /%s src=http://%s:%s%s/%s encoding=metacube", u.Name, config.Hostname, config.StreamingPort, u.Id, u.Name)
+		d += fmt.Sprintf("\nstream /%s src=http://%s:%s%s/%s encoding=metacube", u.Name, config.Hostname, config.StreamingPort, u.Id, u.Name)
 	}
 
 	// Write the config file
