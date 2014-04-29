@@ -976,7 +976,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Get number of viewers on current channel
 	currentViewers := ""
 	if _, ok := streams[user.Name]; ok {
-		currentViewers = countStream(streams[user.Name].Cmd.Process.Pid, user.Id)
+		currentViewers = countStream(streams[user.Name].Cmd.Process.Pid, user)
 	}
 
 	subscriptions, err := getSeriesSubscriptions(user.Name)
@@ -1015,8 +1015,15 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	t.Execute(w, d)
 }
 
-func countStream(pid int, userid string) string {
-	cmd := fmt.Sprintf("lsof -a -p %d -i tcp:%v%v | grep ESTABLISHED | wc -l", pid, config.StreamingPort, userid)
+func countStream(pid int, user User) string {
+	var cmd string
+	if (config.CubemapConfig != "") {
+		// Cubemap has its own counting / statistics file.
+		// TODO: Parse cubemap-config and get cubemap.stats file based on it.
+		cmd = fmt.Sprintf("cat cubemap.stats | grep %v | wc -l", user.Name)
+	} else {
+		cmd = fmt.Sprintf("lsof -a -p %d -i tcp:%v%v | grep ESTABLISHED | wc -l", pid, config.StreamingPort, user.Id)
+	}
 	oneliner := exec.Command("bash", "-c", cmd)
 	out, _ := oneliner.Output()
 	return strings.TrimSpace(string(out))
