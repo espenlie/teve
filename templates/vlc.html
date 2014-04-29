@@ -1,53 +1,34 @@
-<!DOCTYPE html>
-<html>
-<head>
-<style>
-body {
-  margin:50px 0px; padding:0px; /* Need to set body margin and padding to get consistency between browsers. */
-  text-align:center; /* Hack for IE5/Win */
-  background-color:#ddd;
-}
-#content {
-  width:640px;
-  margin:0px auto; /* Right and left margin widths set to "auto" */
-  text-align:lefteft; /* Counteract to IE5/Win Hack */
-  padding:15px;
-  padding-top:5px;
-  background-color: rgb(66, 184, 221); /* this is a light blue */
-  border-radius: 4px;
-  border: 1px solid black;
-}
-form {
-  margin: 10px 0;
-}
-</style>
-</head>
+<h2 class="underlined">VLC web-media player</h2>
+<form action="./vlc" class="pure-form">
+  <div class="pure-g">
+    <div class="pure-u-1-3">
+      <input type="text" value="{{.Url}}" name="url" class="pure-input-1">
+    </div>
+    <div class="pure-u-1-2">
+      <input type="submit" value="Endre url" class="pure-button button-yellow set-button">
+    </div>
+  </div>
+</form>
+<p></p>
+<embed type="application/x-vlc-plugin"
+  pluginspage="http://www.videolan.org" version="VideoLAN.VLCPlugin.2" 
+  width="640px" 
+  height="360px"
+  id="vlc"
+  loop="yes"
+  autoplay="yes" 
+  target="{{.Url}}">
+</embed>
+<p>
+  <b>Tips: </b><em>Dobbel-klikk for å få fullskjerm</em><br />
+  <b>Tips: </b><em>Problemer? Prøv å stoppe og starte streamen!</em>
+</p>
+<p>
+  <a href="#" onclick="enableDeinterlace()">Skru på deinterlace med Yadif2x (js)</a>
+</p>
 <script>
 var enableDeinterlace = function() {
   vlc = document.getElementById("vlc");
   vlc.video.deinterlace.enable("yadif2x");
 }
 </script>
-<body>
-<div id="content">
-<h2>VLC web-media player</h2>
-<form action="./vlc">
-  <input type="text" value="{{.Url}}" name="url" style="width: 70%">
-  <input type="submit" value="Endre url">
-</form>
-<embed type="application/x-vlc-plugin"
-pluginspage="http://www.videolan.org" version="VideoLAN.VLCPlugin.2" 
-width="640px" 
-height="360px"
-id="vlc"
-loop="yes"
-autoplay="yes" 
-target="{{.Url}}"></embed>
-<b>Tips: </b><em>Dobbel-klikk for å få fullskjerm</em><br />
-<b>Tips: </b><em>Problemer? Prøv å stoppe og starte streamen!</em>
-<p>
-<a href="#" onclick="enableDeinterlace()">Skru på deinterlace med Yadif2x (js)</a>
-</p>
-</div>
-</body>
-</html>

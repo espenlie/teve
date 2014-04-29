@@ -1,46 +1,22 @@
-<html>
-<head>
-    <link rel="stylesheet" href="{{.BaseUrl}}static/pure-min.css">
-    <link rel="stylesheet" href="{{.BaseUrl}}static/styles.css">
-    <title>Archive :: teve</title>
-<style>
-body {
-  margin:50px 0px; padding:0px; /* Need to set body margin and padding to get consistency between browsers. */
-  text-align:center; /* Hack for IE5/Win */
-  background-color:#ddd;
-}
-#content {
-  width:640px;
-  margin:0px auto; /* Right and left margin widths set to "auto" */
-  text-align:lefteft; /* Counteract to IE5/Win Hack */
-  padding:15px;
-  padding-top:5px;
-  background-color: rgb(66, 184, 221); /* this is a light blue */
-  border-radius: 4px;
-  border: 1px solid black;
-}
-</style>
-</head>
-<body>
-<div id="content">
-<h2>Arkiv</h2>
+<h2 class="underlined">Arkiv</h2>
   {{if .Files}}
   {{$base := .BaseUrl}}
-    <table>
-        <th>Navn</th>
-        <th>Størrelse</th>
-        <th></th>
-        <th></th>
-    {{range .Files}}
-        <tr>
-            <td><a href="{{.Url}}">{{.Name}}</a><td>
-            <td>{{.Size}}MB<td>
-            <td><a href="{{.SUrl}}" class="pure-button button-green">Direkte-lenke</a><td>
-            <td><a href="{{$base}}archive?delete={{.Name}}" class="pure-button button-red">Slett</a></td>
-        </tr>
-    {{end}}
-    </ul>
-  {{else}}{{end}}
+  <table id="archive-table">
+    <tr>
+      <th>Navn</th>
+      <th>Størrelse</th>
+      <th colspan="2"></th>
+    </tr>
+  {{range .Files}}
+    <tr>
+      <td style="padding-left:0"><a href="{{.Url}}">{{.Name}}</a></td>
+      <td>{{.Size}}MB</td>
+      <td><a href="{{.SUrl}}" class="pure-button button-green">Direkte-lenke</a></td>
+      <td><a href="{{$base}}archive?delete={{.Name}}" class="pure-button button-red">Slett</a></td>
+    </tr>
+  {{end}}
+  </table>
+  {{else}}
+    <p>Ingen filer! :-)</p>
+  {{end}}
 </div>
-</body>
-</html>

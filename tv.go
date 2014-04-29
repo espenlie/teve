@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -541,16 +542,11 @@ func startRecordingHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) 
 	http.Redirect(w, &r.Request, config.BaseUrl, 302)
 }
 
-func startVlcHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
-	t, err := template.ParseFiles("templates/vlc.html")
-	if err != nil {
-		logMessage("error", "Could not parse template file for VLC-player", err)
-		return
-	}
+func startVlcHandler(w http.ResponseWriter, r *http.Request) {
 	d := make(map[string]interface{})
 	d["Url"] = r.FormValue("url")
 	d["BaseUrl"] = config.BaseUrl
-	t.Execute(w, d)
+	w.Write(getPage("vlc.html", d))
 }
 
 func deleteRecording(name string) error {
@@ -761,12 +757,6 @@ func getAllPrograms() ([]string, error) {
 }
 
 func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
-	t, err := template.ParseFiles("templates/archive.html")
-	if err != nil {
-		logMessage("error", "Could not parse template file for archive", err)
-		return
-	}
-
 	// Check if we requested to delete a file.
 	deleteform := r.FormValue("delete")
 	if deleteform != "" {
@@ -791,6 +781,10 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 
 	// Get all recordings in the archive folder.
 	recordings, err := ioutil.ReadDir(config.RecordingsFolder)
+	if err != nil {
+		logMessage("error", "Could not list archive", err)
+		return
+	}
 
 	// Make an empty file.
 	fs := make([]File, 0)
@@ -807,11 +801,7 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	d := make(map[string]interface{})
 	d["Files"] = fs
 	d["BaseUrl"] = config.BaseUrl
-	if err != nil {
-		logMessage("error", "Could not list archive", err)
-		return
-	}
-	t.Execute(w, d)
+	w.Write(getPage("archive.html", d))
 }
 
 func startChannel(ch Channel, u User, transcoding int) error {
@@ -905,14 +895,32 @@ func startExternalStream(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	http.Redirect(w, &r.Request, config.BaseUrl, 302)
 }
 
-func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
+func parseTemplate(file string, data interface{}) ([]byte, error) {
+	var buf bytes.Buffer
+	t, err := template.ParseFiles(file)
+	if err != nil {
+		return nil, err
+	}
+	err = t.Execute(&buf, data)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func getPage(file string, data map[string]interface{}) []byte {
 	// Show running channel and list of channels.
-	t, err := template.ParseFiles("templates/index.html")
+	t, err := parseTemplate("templates/"+file, data)
 	if err != nil {
 		logMessage("error", "Could not parse template file", err)
-		return
 	}
+	data["BodyHTML"] = template.HTML(t)
+	base, err := parseTemplate("templates/base.html", data)
 
+	return base
+}
+
+func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Ensure user that has logged in, is in the system.
 	user, err := getUserFromRequest(r)
 	if err != nil {
@@ -1014,7 +1022,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	d["URL"] = userURL
 	d["Running"] = (currentChannel != "")
 
-	t.Execute(w, d)
+	w.Write(getPage("index.html", d))
 }
 
 func countStream(pid int, user User) string {
@@ -1226,7 +1234,6 @@ func main() {
 	http.HandleFunc("/external", authenticator.Wrap(startExternalStream))
 	http.HandleFunc("/record", authenticator.Wrap(startRecordingHandler))
 	http.HandleFunc("/stopRecording", authenticator.Wrap(stopRecordingHandler))
-	http.HandleFunc("/vlc", authenticator.Wrap(startVlcHandler))
 	http.HandleFunc("/archive", authenticator.Wrap(archivePageHandler))
 	http.HandleFunc("/startSubscription", authenticator.Wrap(startSeriesSubscription))
 	http.HandleFunc("/deleteSubscription", authenticator.Wrap(removeSubscriptionHandler))
@@ -1234,6 +1241,7 @@ func main() {
 	// No auth
 	http.HandleFunc("/checkSubscriptions", checkSubscriptionsHandler)
 	http.HandleFunc("/addChannel", addChannelHandler)
+	http.HandleFunc("/vlc", startVlcHandler)
 
 	// Static content, including video-files of old recordings.
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))

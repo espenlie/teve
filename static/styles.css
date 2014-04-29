@@ -131,6 +131,17 @@ tr.header td {
   text-decoration: none;
   color: #d9534f;
 }
+#archive-table th {
+  background-color: #ddd;
+  border-bottom: 1px solid black;
+  padding: 5px 0;
+}
+#archive-table td {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+#archive-table {
+}
 @media only screen and (max-width: 800px) {
   .home-menu li {
     display: block;

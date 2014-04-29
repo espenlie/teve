@@ -1,0 +1,42 @@
+<html>
+  <head>
+    <title>{{if .CurrentChannel}}{{ .CurrentChannel }}{{else}}-{{end}} :: {{.User}} :: teve</title>
+    <link rel="icon" href="{{.BaseUrl}}static/favicon.ico" type="image/x-icon" />
+    <link rel="stylesheet" href="{{.BaseUrl}}static/pure-min.css">
+    <link rel="stylesheet" href="{{.BaseUrl}}static/styles.css">
+    <meta http-equiv="refresh" content="180; url={{.BaseUrl}}">
+    <meta name="viewport" content="width=device-width, user-scalable=no">
+    <script>
+      var toggle = function(elem){
+        var row = elem.parentElement.parentElement;
+        var descr = row.nextSibling.nextSibling;
+        if (descr.style.display == "none"){
+          descr.style.display = "";
+        } else {
+          descr.style.display = "none"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    {{$base := .BaseUrl}}
+    <div class="home-menu pure-menu pure-menu-open pure-menu-fixed pure-menu-horizontal">
+      <a class="pure-menu-heading" href="{{$base}}">teve</a>
+      {{if .User}}
+      <ul>
+        {{if .Running}}
+        <li><span>Spiller <b>{{.CurrentChannel}}</b></span></li>
+        <li><a href="{{$base}}?kchannel=1" class="pure-button button-red">Stopp</a></li>
+        <li><a href="#" class="pure-button button-lblue">{{.Viewers}} seere</a></li>
+        {{end}}
+        <li><a class="pure-button button-green" href="{{$base}}archive">Gå til arkiv</a></li>
+        <li><span>Velkommen {{.User}}!</span></li>
+      </ul>
+      {{end}}
+    </div>
+    <div class="clear"></div>
+    <div class="content">
+      {{ .BodyHTML }}
+    </div>
+  </body>
+</html>
