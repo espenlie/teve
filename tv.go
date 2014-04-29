@@ -301,6 +301,7 @@ func startUniStream(channel Channel, user User, transcoding int, access string) 
 }
 
 func killUniStream(user User) error {
+	logMessage("info", "Killing stream for user '" + user.Name +"'", nil)
 	if _, ok := streams[user.Name]; ok {
 		// Kill the VLC-process running this channel.
 		err := killStream(streams[user.Name].Cmd)
@@ -813,9 +814,11 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 
 func startChannel(ch Channel, u User, transcoding int) error {
 	// First kill current running channel, if any.
-	err := killUniStream(u)
-	if err != nil {
-		return err
+	if _, ok := streams[u.Name]; ok {
+		err := killUniStream(u)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Check if we want to access with http or cubemap
@@ -829,6 +832,7 @@ func startChannel(ch Channel, u User, transcoding int) error {
 	if err != nil {
 		return err
 	}
+	logMessage("info", "Started stream for user '" + u.Name + "'", nil)
 
 	// Add the new stream to as the "current running stream" for this user.
 	streams[u.Name] = Command{
