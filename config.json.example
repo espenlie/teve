@@ -39,6 +39,8 @@
 
   "CubemapPort": 9094,
 
+  "AutoStopInterval: 3,
+
   "DBHost" : "localhost",
   "DBName" : "epg",
   "DBUser" : "epguser",

@@ -59,6 +59,7 @@ type Config struct {
 	Debug            bool
 	CubemapConfig    string
 	CubemapPort      int
+	AutoStopInterval int
 }
 
 type Command struct {
@@ -468,7 +469,7 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	}
 
 	if duration < 0 {
-		logMessage("error", "Starting recording failed due to negative duration", err)
+		logMessage("warn", "Starting recording failed due to negative duration", err)
 		return
 	}
 
@@ -477,14 +478,14 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	filename := fmt.Sprintf("%v/%v-%v-%v.mkv", config.RecordingsFolder, time.Now().Format(file_layout), programme_title, username)
 	id, err := insertRecording(username, title, channel, transcode, start, stop)
 	if err != nil {
-		logMessage("error", "Could not insert recording", err)
+		logMessage("warn", "Could not insert recording", err)
 		return
 	}
 
 	// Get the channel for this recording
 	ch, err := getChannel(channel, username)
 	if err != nil {
-		logMessage("error", "Could not get channel in order to start recording", err)
+		logMessage("warn", "Could not get channel in order to start recording", err)
 		return
 	}
 	command := getVLCstr(0, ch.Address, filename, "file")
@@ -1017,7 +1018,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 
 func countStream(pid int, user User) string {
 	var cmd string
-	if (config.CubemapConfig != "") {
+	if config.CubemapConfig != "" {
 		// Cubemap has its own counting / statistics file.
 		// TODO: Parse cubemap-config and get cubemap.stats file based on it.
 		cmd = fmt.Sprintf("cat cubemap.stats | grep %v | wc -l", user.Name)
@@ -1138,6 +1139,49 @@ func writeCubemapConfig() error {
 	return nil
 }
 
+func autoStopStreams() {
+	if config.AutoStopInterval == 0 {
+		// Dont auto kill streams if config variable is 0.
+		return
+	}
+
+	for {
+		count := 0
+
+		// Check all streams and if one has 0 viewers, kill it.
+		for username, stream := range streams {
+
+			// Get the number of viewers.
+			u, err := getUserFromName(username)
+			if err != nil {
+				logMessage("error", "Could not get username when checking for dead streams", err)
+			}
+			currView := countStream(stream.Cmd.Process.Pid, u)
+			currentViewers, err := strconv.Atoi(currView)
+			if err != nil {
+				logMessage("error", "Could not convert currentViewers to int", err)
+			}
+
+			// If it's 0 viewers, kill it.
+			if currentViewers == 0 {
+				err := killUniStream(u)
+				if err != nil {
+					logMessage("error", "Could not kill stream", err)
+				}
+				count += 1
+			}
+		}
+
+		// Give a useful log-message if we have done something.
+		if count > 0 {
+			logMessage("info", fmt.Sprintf("Killed %d inactive streams", count), nil)
+		}
+
+		// Sleep X hours, and check again.
+		time.Sleep(time.Duration(config.AutoStopInterval) * time.Hour)
+	}
+}
+
 func main() {
 	var cubemap = flag.String("cubemap", "", "Use cubemap as a VLC-reflector")
 	flag.Parse()
@@ -1166,6 +1210,9 @@ func main() {
 	if err != nil {
 		logMessage("error", "Failed to initialize recordings", err)
 	}
+
+	// Start a thread checking for stopped streams, killing them if no one are watching.
+	go autoStopStreams()
 
 	// Defining our paths
 	secrets := auth.HtpasswdFileProvider(config.PasswordFile)
