@@ -301,7 +301,7 @@ func startUniStream(channel Channel, user User, transcoding int, access string) 
 }
 
 func killUniStream(user User) error {
-	logMessage("info", "Killing stream for user '" + user.Name +"'", nil)
+	logMessage("info", "Killing stream for user '"+user.Name+"'", nil)
 	if _, ok := streams[user.Name]; ok {
 		// Kill the VLC-process running this channel.
 		err := killStream(streams[user.Name].Cmd)
@@ -315,7 +315,7 @@ func killUniStream(user User) error {
 
 	// Kind of funky, but since cubemap want to set src=delete we need to record
 	// that this channel indeed has been stopped.
-	if (config.CubemapConfig != "") {
+	if config.CubemapConfig != "" {
 		cubemapDeleteQueue[user.Name] = true
 
 		// Write the new cubemap-config
