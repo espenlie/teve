@@ -1042,14 +1042,9 @@ func getPid(serviceName string) (int, error) {
 	return pid, nil
 }
 
-func writeCubemapConfig() error {
-	if config.CubemapConfig == "" {
-		// The filename is empty. So we will not update the config.
-		// Nor will we return an error, we just ignore everything.
-		return nil
-	}
-
+func getDefaultCubemapConfig() string {
 	// Write a config file for cubemap
+	// You should rather define your own cubemap.config file
 	d := "num_servers 1\n"
 	d += "port 9094\n"
 	d += "stats_file cubemap.stats\n"
@@ -1060,6 +1055,43 @@ func writeCubemapConfig() error {
 	d += "error_log type=file filename=cubemap.log\n"
 	d += "error_log type=syslog\n"
 	d += "error_log type=console\n"
+	return d
+}
+
+func writeCubemapConfig() error {
+	if config.CubemapConfig == "" {
+		// The filename is empty. So we will not update the config.
+		// Nor will we return an error, we just ignore everything.
+		return nil
+	}
+
+	// Our configuration string.
+	d := ""
+
+	// Check if the file exists
+	if _, err := os.Stat(config.CubemapConfig); err != nil {
+		// It does not exists, so we use a default config
+		logMessage("warn", fmt.Sprintf("Did not find '%v', creating it with default variables", config.CubemapConfig), nil)
+		d += getDefaultCubemapConfig()
+	} else {
+		// It exist, so we read it into memory.
+		content, err := ioutil.ReadFile(config.CubemapConfig)
+		if err != nil {
+			return err
+		}
+		// Find the end of the file or the line where word 'stream' or 'udpstream' appears.
+		// We will use the configuration before these words as our base-config.
+		lines := strings.Split(string(content), "\n")
+		baseConfigEnd := 0
+		for i, line := range lines {
+			baseConfigEnd = i
+			params := strings.Split(line, " ")
+			if params[0] == "stream" || params[0] == "udpstream" {
+				break
+			}
+		}
+		d = strings.Join(lines[:baseConfigEnd], "\n")
+	}
 
 	// Add all deleted/stopped streams to the config-file.
 	for username, _ := range cubemapDeleteQueue {
