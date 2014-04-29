@@ -89,13 +89,11 @@ Start *teve* with the `--cubemap` flag:
 
     $ ./teve --cubemap cubemap/cubemap.config
 
-This will fail the first time, but it will create a config-file. Then you can
-start the cubemap service and the teve-service, this time working:
+And start cubemap:
 
     $ cubemap cubemap/cubemap.config
-    $ ./teve --cubemap cubemap/cubemap.config
 
-### Using Go version > 1.2
+## Using Go version > 1.2
 
 So, since Go pre 1.2 does not have Ping() implemented for database handlers,
 you will need to manually download it -- if not already provided by your OS.
@@ -115,7 +113,7 @@ you may even have multiple of them. In short you want to:
 You may of course customize your paths and perhaps even add the GOROOT to your
 `.bashrc`-file.
 
-### Ensuring GNUTLS
+## Ensuring GNUTLS
 
 If you are trying to play TLS-protected content (that is `https://` streams)
 and VLC moans with the message:
@@ -169,7 +167,7 @@ for its installed modules:
 
     $ vlc --list | grep gnutls
 
-### Sample Nginx-setup
+## Sample Nginx-setup
 
 We here assume that the base-path is set to `/tv/`, that the service is running
 at port 12000 and that the source code is found at `/srv/teve`. `fqdn` means
@@ -196,7 +194,7 @@ running the service on.
         }
     }
 
-### Go dependencies
+## Go dependencies
 
 These are downloaded and built with the `go get` command.
 
