@@ -15,18 +15,18 @@ port 9094
 # listen 127.0.0.1:9095
 # listen [::1]:9095
 
-stats_file cubemap.stats
-stats_interval 60
+stats_file cubemap/cubemap.stats
+stats_interval 10
 
-input_stats_file cubemap-input.stats
+input_stats_file cubemap/cubemap-input.stats
 input_stats_interval 60
 
 # Logging of clients as they disconnect (and as such as no longer visible in the stats file).
 # You can only have zero or one of these.
-access_log access.log
+access_log cubemap/access.log
 
 # Logging of various informational and error messages. You can have as many of these as you want.
-error_log type=file filename=cubemap.log
+error_log type=file filename=cubemap/cubemap.log
 error_log type=syslog
 error_log type=console
 
