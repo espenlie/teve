@@ -100,6 +100,7 @@ var config Config
 
 var streams = make(map[string]Command)
 var recordings = make(map[int64]Recording)
+var cubemapDeleteQueue = make(map[string]bool)
 var dbh *sql.DB
 
 func ensureDbhConnection() {
@@ -311,8 +312,17 @@ func killUniStream(user User) error {
 	// Delete from "currently playing hashmap"
 	delete(streams, user.Name)
 
-	// Write the new cubemap-config, if enabled.
-	return writeCubemapConfig()
+	// Kind of funky, but since cubemap want to set src=delete we need to record
+	// that this channel indeed has been stopped.
+	if (config.CubemapConfig != "") {
+		cubemapDeleteQueue[user.Name] = true
+
+		// Write the new cubemap-config
+		return writeCubemapConfig()
+	}
+
+	// Killing went fine.
+	return nil
 }
 
 func killStream(cmd *exec.Cmd) error {
@@ -1054,7 +1064,15 @@ func writeCubemapConfig() error {
 			return err
 		}
 
-		d += fmt.Sprintf("\nstream /%s src=http://%s:%s%s/%s encoding=metacube", u.Name, config.Hostname, config.StreamingPort, u.Id, u.Name)
+		if _, ok := cubemapDeleteQueue[u.Name]; ok {
+			// The stream has previously been running, but now we stop it (and delete it from cubemap)
+			d += fmt.Sprintf("\nstream /%s src=delete", u.Name)
+			delete(cubemapDeleteQueue, u.Name)
+		} else {
+			// Add the stream to the cubemapconfig.
+			url := fmt.Sprintf("http://%s:%s%s/%s", config.Hostname, config.StreamingPort, u.Id, u.Name)
+			d += fmt.Sprintf("\nstream /%s src=%s encoding=metacube", u.Name, url)
+		}
 	}
 
 	// Write the config file
