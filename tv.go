@@ -300,12 +300,19 @@ func startUniStream(channel Channel, user User, transcoding int, access string) 
 }
 
 func killUniStream(user User) error {
-	var err error
 	if _, ok := streams[user.Name]; ok {
-		err = killStream(streams[user.Name].Cmd)
+		// Kill the VLC-process running this channel.
+		err := killStream(streams[user.Name].Cmd)
+		if err != nil {
+			return nil
+		}
 	}
+
+	// Delete from "currently playing hashmap"
 	delete(streams, user.Name)
-	return err
+
+	// Write the new cubemap-config, if enabled.
+	return writeCubemapConfig()
 }
 
 func killStream(cmd *exec.Cmd) error {
@@ -823,7 +830,7 @@ func startChannel(ch Channel, u User, transcoding int) error {
 
 	// Write cubemap-config, this is ignored if config.CubemapConfig is empty.
 	// That is, it's ignored if we don't have Cubemap enabled.
-	err = writeCubemapConfig(config.CubemapConfig)
+	err = writeCubemapConfig()
 	if err != nil {
 		logMessage("error", "Could not update cubemap-config", err)
 	}
@@ -1021,8 +1028,8 @@ func getPid(serviceName string) (int, error) {
 	return pid, nil
 }
 
-func writeCubemapConfig(filename string) error {
-	if filename == "" {
+func writeCubemapConfig() error {
+	if config.CubemapConfig == "" {
 		// The filename is empty. So we will not update the config.
 		// Nor will we return an error, we just ignore everything.
 		return nil
@@ -1051,11 +1058,11 @@ func writeCubemapConfig(filename string) error {
 	}
 
 	// Write the config file
-	err := ioutil.WriteFile(filename, []byte(d), 0644)
+	err := ioutil.WriteFile(config.CubemapConfig, []byte(d), 0644)
 	if err != nil {
 		return err
 	}
-	logMessage("info", fmt.Sprintf("Wrote new cubemap-config to %s", filename), nil)
+	logMessage("info", fmt.Sprintf("Wrote new cubemap-config to %s", config.CubemapConfig), nil)
 
 	// SIGHUP the cubemap service
 	pid, err := getPid("cubemap")
@@ -1083,7 +1090,7 @@ func main() {
 	// Check if we want to use cubemap as reflector
 	if *cubemap != "" {
 		config.CubemapConfig = *cubemap
-		err := writeCubemapConfig(*cubemap)
+		err := writeCubemapConfig()
 		if err != nil {
 			logMessage("info", "Got error re-execing cubemap", err)
 		}
