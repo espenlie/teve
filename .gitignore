@@ -1,7 +1,16 @@
 *.swp
-venv/
-config.json
-cubemap.config
 teve
 recordings/*
+
+# Configuration file for the project.
+config.json
+
+# Passwords and usernames
 .htpasswd
+
+# Virtual environment in the contrib-folder, if used.
+contrib/venv
+
+# Ignore everything, except the sample config in cubemap folder.
+cubemap/*
+!cubemap/cubemap.config.sample
