@@ -58,6 +58,7 @@ type Config struct {
 	DBPass           string
 	Debug            bool
 	CubemapConfig    string
+	CubemapStatsFile string
 	CubemapPort      int
 	AutoStopInterval int
 }
@@ -1020,8 +1021,7 @@ func countStream(pid int, user User) string {
 	var cmd string
 	if config.CubemapConfig != "" {
 		// Cubemap has its own counting / statistics file.
-		// TODO: Parse cubemap-config and get cubemap.stats file based on it.
-		cmd = fmt.Sprintf("cat cubemap.stats | grep %v | wc -l", user.Name)
+		cmd = fmt.Sprintf("cat %v | grep %v | wc -l", config.CubemapStatsFile, user.Name)
 	} else {
 		cmd = fmt.Sprintf("lsof -a -p %d -i tcp:%v%v | grep ESTABLISHED | wc -l", pid, config.StreamingPort, user.Id)
 	}
@@ -1096,6 +1096,11 @@ func writeCubemapConfig() error {
 			params := strings.Split(line, " ")
 			if params[0] == "stream" || params[0] == "udpstream" {
 				break
+			}
+
+			// We'll use this oppertunity to save the stats_file location, as well.
+			if params[0] == "stats_file" {
+				config.CubemapStatsFile = params[1]
 			}
 		}
 		d = strings.Join(lines[:baseConfigEnd], "\n")
