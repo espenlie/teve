@@ -306,7 +306,7 @@ func killUniStream(user User) error {
 		// Kill the VLC-process running this channel.
 		err := killStream(streams[user.Name].Cmd)
 		if err != nil {
-			return nil
+			return err
 		}
 	}
 
@@ -832,7 +832,7 @@ func startChannel(ch Channel, u User, transcoding int) error {
 	if err != nil {
 		return err
 	}
-	logMessage("info", "Started stream for user '" + u.Name + "'", nil)
+	logMessage("info", fmt.Sprintf("Started stream '%v' for user '%v'", ch.Address, u.Name), nil)
 
 	// Add the new stream to as the "current running stream" for this user.
 	streams[u.Name] = Command{
@@ -1061,22 +1061,22 @@ func writeCubemapConfig() error {
 	d += "error_log type=syslog\n"
 	d += "error_log type=console\n"
 
-	// Add all streams to the config-file.
+	// Add all deleted/stopped streams to the config-file.
+	for username, _ := range cubemapDeleteQueue {
+		d += fmt.Sprintf("\nstream /%s src=delete", username)
+		delete(cubemapDeleteQueue, username)
+	}
+
+	// Add all running streams to the config-file.
 	for username, _ := range streams {
 		u, err := getUserFromName(username)
 		if err != nil {
 			return err
 		}
 
-		if _, ok := cubemapDeleteQueue[u.Name]; ok {
-			// The stream has previously been running, but now we stop it (and delete it from cubemap)
-			d += fmt.Sprintf("\nstream /%s src=delete", u.Name)
-			delete(cubemapDeleteQueue, u.Name)
-		} else {
-			// Add the stream to the cubemapconfig.
-			url := fmt.Sprintf("http://%s:%s%s/%s", config.Hostname, config.StreamingPort, u.Id, u.Name)
-			d += fmt.Sprintf("\nstream /%s src=%s encoding=metacube", u.Name, url)
-		}
+		// Add the stream to the cubemapconfig.
+		url := fmt.Sprintf("http://%s:%s%s/%s", config.Hostname, config.StreamingPort, u.Id, u.Name)
+		d += fmt.Sprintf("\nstream /%s src=%s encoding=metacube", u.Name, url)
 	}
 
 	// Write the config file
