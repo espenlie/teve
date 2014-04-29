@@ -1,6 +1,10 @@
 *.swp
 teve
+
+# Ignore the folder content of recordings
 recordings/*
+# .. and if it is a symlink
+recordings
 
 # Configuration file for the project.
 config.json
