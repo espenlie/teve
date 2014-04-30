@@ -801,12 +801,12 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Make an empty file.
 	fs := make([]File, 0)
 
-	baseurl := "http://" + config.Hostname + config.BaseUrl + "?url="
+	baseUrl := "http://" + config.Hostname + ":" + config.WebPort + config.BaseUrl
 	for _, file := range recordings {
-		streamurl := "http://" + r.Host + config.BaseUrl + config.RecordingsFolder + "/" + file.Name()
-		fileurl := baseurl + streamurl
+		streamurl := baseUrl + config.RecordingsFolder + "/" + file.Name()
+		vlcurl := baseUrl + "vlc?url=" + streamurl
 		// Add the file to array and display MB.
-		fs = append(fs, File{Name: file.Name(), Size: (file.Size() / 1000000), Url: fileurl, SUrl: streamurl})
+		fs = append(fs, File{Name: file.Name(), Size: (file.Size() / 1000000), Url: vlcurl, SUrl: streamurl})
 	}
 
 	// Map holding our parameters.

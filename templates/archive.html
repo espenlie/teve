@@ -5,13 +5,14 @@
     <tr>
       <th>Navn</th>
       <th>Størrelse</th>
-      <th colspan="2"></th>
+      <th colspan="3">Tilgjengelige handlinger</th>
     </tr>
   {{range .Files}}
     <tr>
       <td style="padding-left:0"><a href="{{.Url}}">{{.Name}}</a></td>
       <td>{{.Size}}MB</td>
       <td><a href="{{.SUrl}}" class="pure-button button-green">Direkte-lenke</a></td>
+      <td><a href="{{.Url}}" class="pure-button button-yellow">VLC Webplayer</a></td>
       <td><a href="{{$base}}archive?delete={{.Name}}" class="pure-button button-red">Slett</a></td>
     </tr>
   {{end}}
