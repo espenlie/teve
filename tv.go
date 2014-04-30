@@ -1244,12 +1244,14 @@ func main() {
 	// Check if we want to use cubemap as reflector
 	if *cubemap != "" {
 		config.CubemapConfig = *cubemap
+	}
+	if config.CubemapConfig != "" {
 		err := writeCubemapConfig()
 		if err != nil {
-			logMessage("info", "Got error re-execing cubemap", err)
+			logMessage("warn", "Got error re-execing cubemap", err)
 		}
 		for _, err := getPid("cubemap"); err != nil; {
-			logMessage("info", "Cubemap service not running. Waiting 2 seconds before continuing", nil)
+			logMessage("warn", "Cubemap service not running. Waiting 2 seconds before continuing", nil)
 			time.Sleep(2 * time.Second)
 		}
 	}
