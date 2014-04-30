@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
 	"syscall"
@@ -150,6 +151,13 @@ func loadConfig(filename string) Config {
 	err = json.Unmarshal(file, &config)
 	if err != nil {
 		logMessage("error", "Problemer med å pakke ut config", err)
+	}
+
+	// Check if any channels are empty and notify in that case.
+	for _, channel := range *(config.Channels) {
+		if channel.Address == "" {
+			logMessage("warn", fmt.Sprintf("Channel '%s' is empty, either edit your config or run NRK script in contrib", channel.Name), nil)
+		}
 	}
 	return config
 }
@@ -1195,6 +1203,23 @@ func autoStopStreams() {
 	}
 }
 
+func handleSignals() {
+	// Make chan listening for signals, and redirect all signals to this chan.
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, syscall.SIGHUP)
+
+	// Anonymous go-thread listening for syscalls.
+	go func() {
+		for sig := range c {
+			if sig == syscall.SIGHUP {
+				// Reload the config.
+				config = loadConfig("config.json")
+				logMessage("info", "Got SIGHUP. Reloaded config", nil)
+			}
+		}
+	}()
+}
+
 func main() {
 	var cubemap = flag.String("cubemap", "", "Use cubemap as a VLC-reflector")
 	flag.Parse()
@@ -1204,6 +1229,9 @@ func main() {
 
 	// Create the DBH
 	ensureDbhConnection()
+
+	// Listen for signals
+	handleSignals()
 
 	// Check if we want to use cubemap as reflector
 	if *cubemap != "" {
