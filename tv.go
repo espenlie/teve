@@ -1034,6 +1034,7 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	d["Programs"] = programs
 	d["URL"] = userURL
 	d["Running"] = (currentChannel != "")
+	d["Refresh"] = true // Enable auto-refreshing
 
 	w.Write(getPage("index.html", d))
 }

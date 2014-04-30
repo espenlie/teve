@@ -4,7 +4,7 @@
     <link rel="icon" href="{{.BaseUrl}}static/favicon.ico" type="image/x-icon" />
     <link rel="stylesheet" href="{{.BaseUrl}}static/pure-min.css">
     <link rel="stylesheet" href="{{.BaseUrl}}static/styles.css">
-    <meta http-equiv="refresh" content="180; url={{.BaseUrl}}">
+    {{if .Refresh}}<meta http-equiv="refresh" content="180; url={{.BaseUrl}}">{{end}}
     <meta name="viewport" content="width=device-width, user-scalable=no">
     <script>
       var toggle = function(elem){
