@@ -19,6 +19,9 @@ Then create the postgres-user and give the correct permissions:
     $ sudo su postgres -s /bin/bash
     $ createuser tvadmin -P -D -R -S
     $ createdb teve -O tvadmin
+    $ psql teve
+    => GRANT ALL PRIVILEGES ON DATABASE teve TO tvadmin;
+    $ psql -f contrib/sql.db -d teve
 
 Edit the configuration file with your preferred contents and more importantly
 the DB password/username from previous step and the hostname:
@@ -32,7 +35,7 @@ skip the two first steps:
     $ virtualenv contrib/venv
     $ source contrib/venv/bin/activate
     $ pip install -r contrib/requirements.txt
-    $ ./contrib/sync.sh [ tvadmin ]
+    $ ./contrib/sync.sh
 
 Create your first user for the systems basic auth by creating a .htpasswd file:
 
@@ -125,15 +128,22 @@ it's a too old version for upstream VLC. Relevant lines from `configure.ac`:
 
     PKG_CHECK_MODULES(GNUTLS, [gnutls >= 3.0.20]
 
-So, you will need GNUTLS version 3.0.20 or better. You can check which you have installed with:
+So, you will need GNUTLS version 3.0.20 or better. You can check which you have
+installed with:
 
     aptitude show gnutls
     # or if you fancy
     dpkg -l | grep gnutls
 
-If you indeed have a too old binary, then you will have to build it youself :-(
+If you indeed have a too old binary, then you will either have to get it from
+backports or some other source -- or you have to build it youself :-(
+In backports you may be lucky and can do something like:
+
+    # First add the wheezy-backports to /etc/apt/sources.list, then:
+    $ aptitude -t wheezy-backports install libgnutls28 libgnutls28-dev 
+
 Here is a short guide, or whatever (note that the URLs are probably wrong when
-you are reading this, please check them yourself):
+you are reading this, please check them yourself) for building it from source:
 
     $ mkdir tmp; cd tmp
     $ wget ftp://ftp.gnutls.org/gcrypt/gnutls/v3.2/gnutls-3.2.9.tar.xz
@@ -187,10 +197,6 @@ running the service on.
         location /tv/static {
             alias /srv/teve/static;
             expires 14d;
-        }
-        location /tv/favicon.ico {
-            alias /srv/teve/static/favicon.ico;
-            expires 30d;
         }
     }
 

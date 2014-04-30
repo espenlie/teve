@@ -14,6 +14,9 @@ def main():
     # Get the number of days to fetch EPG-data for in config.
     days = config["EpgFetchDays"] if "EpgFetchDays" in config else 4
 
+    # Cache or something for each channel, so we dont do dupliacte requests.
+    channel_cache = {}
+
     channels = [
             { 'epg': 'aljazeera.net', 'ui': 'Al Jazeera Intl'},
             { 'epg': 'nrk1.nrk.no',   'ui': 'NRK1 HD'},
@@ -43,15 +46,22 @@ def main():
     conn = psycopg2.connect("host=%s dbname=%s user=%s password=%s" % (config["DBHost"], config["DBName"], config["DBUser"], config["DBPass"]))
     cur = conn.cursor()
 
+    # Delete all existing data in epg-db.
+    cur.execute("DELETE FROM epg")
+
     for date in dates:
         for channel in channels:
-            resp = urllib2.urlopen("%s/%s_%s.xml.gz" % (base, channel["epg"], date.strftime("%Y-%m-%d")))
-            compr = StringIO.StringIO()
-            compr.write(resp.read())
-            compr.seek(0)
+            # Get from cache, or add it to cache if not found.
+            channel_key = channel["epg"] + "_" + date.strftime("%Y-%m-%d")
+            if channel_key not in channel_cache:
+              resp = urllib2.urlopen("%s/%s.xml.gz" % (base, channel_key))
+              compr = StringIO.StringIO()
+              compr.write(resp.read())
+              compr.seek(0)
+              f = gzip.GzipFile(fileobj=compr, mode='rb')
+              channel_cache[channel_key] = objectify.fromstring(f.read())
+            root = channel_cache[channel_key]
 
-            f = gzip.GzipFile(fileobj=compr, mode='rb')
-            root = objectify.fromstring(f.read())
             if not hasattr(root, 'programme'):
                 continue
             for programme in root["programme"]:
