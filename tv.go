@@ -40,7 +40,7 @@ type File struct {
 
 type User struct {
 	Name string
-	Id   string
+	Id   int
 }
 
 type Config struct {
@@ -304,7 +304,8 @@ func getVLCstr(transcoding int, address, dst, access string) string {
 func startUniStream(channel Channel, user User, transcoding int, access string) (*exec.Cmd, error) {
 	var cmd *exec.Cmd
 
-	userSuffix := fmt.Sprintf(":%v%v/%v", config.StreamingPort, user.Id, user.Name)
+	userPort := getUserPort(user)
+	userSuffix := fmt.Sprintf(":%d/%v", userPort, user.Name)
 	command := getVLCstr(transcoding, channel.Address, userSuffix, access)
 	cmd = exec.Command("bash", "-c", command)
 	err := cmd.Start()
@@ -353,6 +354,11 @@ func zeroPad(n string) string {
 	return n
 }
 
+func getUserPort(u User) int {
+	base, _ := strconv.Atoi(config.StreamingPort)
+	return base + u.Id
+}
+
 func getUserFromName(username string) (User, error) {
 	// Creates a User-object and gives ID based on placement in PasswordFile.
 	f, err := ioutil.ReadFile(config.PasswordFile)
@@ -363,10 +369,8 @@ func getUserFromName(username string) (User, error) {
 	lines := strings.Split(string(f), "\n")
 	for id, line := range lines[0 : len(lines)-1] {
 		s := strings.SplitN(line, ":", 2)
-		strId := strconv.Itoa(id)
 		if username == s[0] {
-			strId = zeroPad(strId)
-			return User{Name: username, Id: strId}, nil
+			return User{Name: username, Id: id}, nil
 		}
 	}
 	return User{}, errors.New("Did not find user '" + username + "' authenticated from Basic Auth.")
@@ -797,7 +801,7 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Make an empty file.
 	fs := make([]File, 0)
 
-	baseurl := "http://" + r.Host + r.URL.Path + "?url="
+	baseurl := "http://" + config.Hostname + config.BaseUrl + "?url="
 	for _, file := range recordings {
 		streamurl := "http://" + r.Host + config.BaseUrl + config.RecordingsFolder + "/" + file.Name()
 		fileurl := baseurl + streamurl
@@ -1009,7 +1013,8 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	}
 
 	// Get the URL for this user.
-	userURL := fmt.Sprintf("http://%v:%v%v/%v", config.Hostname, config.StreamingPort, user.Id, user.Name)
+	userPort := getUserPort(user)
+	userURL := fmt.Sprintf("http://%v:%d/%v", config.Hostname, userPort, user.Name)
 	if config.CubemapConfig != "" {
 		userURL = fmt.Sprintf("http://%s:%d/%s", config.Hostname, config.CubemapPort, user.Name)
 	}
@@ -1039,7 +1044,8 @@ func countStream(pid int, user User) string {
 		// Cubemap has its own counting / statistics file.
 		cmd = fmt.Sprintf("cat %v | grep %v | wc -l", config.CubemapStatsFile, user.Name)
 	} else {
-		cmd = fmt.Sprintf("lsof -a -p %d -i tcp:%v%v | grep ESTABLISHED | wc -l", pid, config.StreamingPort, user.Id)
+		userPort := getUserPort(user)
+		cmd = fmt.Sprintf("lsof -a -p %d -i tcp:%v%v | grep ESTABLISHED | wc -l", pid, userPort)
 	}
 	oneliner := exec.Command("bash", "-c", cmd)
 	out, _ := oneliner.Output()
@@ -1136,7 +1142,8 @@ func writeCubemapConfig() error {
 		}
 
 		// Add the stream to the cubemapconfig.
-		url := fmt.Sprintf("http://%s:%s%s/%s", config.Hostname, config.StreamingPort, u.Id, u.Name)
+		userPort := getUserPort(u)
+		url := fmt.Sprintf("http://%s:%d/%s", config.Hostname, userPort, u.Name)
 		d += fmt.Sprintf("\nstream /%s src=%s encoding=metacube", u.Name, url)
 	}
 
