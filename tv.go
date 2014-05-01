@@ -801,7 +801,7 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	// Make an empty file.
 	fs := make([]File, 0)
 
-	baseUrl := "http://" + config.Hostname + ":" + config.WebPort + config.BaseUrl
+	baseUrl := "http://" + config.Hostname + ":" + config.BaseUrl
 	for _, file := range recordings {
 		streamurl := baseUrl + config.RecordingsFolder + "/" + file.Name()
 		vlcurl := baseUrl + "vlc?url=" + streamurl
