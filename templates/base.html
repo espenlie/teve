@@ -21,7 +21,7 @@
   <body>
     {{$base := .BaseUrl}}
     <div class="home-menu pure-menu pure-menu-open pure-menu-fixed pure-menu-horizontal">
-      <a class="pure-menu-heading" href="{{$base}}">teve</a>
+      <a class="pure-menu-heading" href="{{$base}}">teve{{if .Title}} - {{.Title}}{{end}}</a>
       {{if .User}}
       <ul>
         {{if .Running}}
