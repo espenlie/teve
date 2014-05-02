@@ -681,6 +681,7 @@ func checkSubscriptions() error {
 	if err != nil {
 		return err
 	}
+	count := 0
 	for rows.Next() {
 		var title, channel, username string
 		var start, stop time.Time
@@ -688,6 +689,12 @@ func checkSubscriptions() error {
 
 		// Start the recording, and for now default to 0 transcoding.
 		go startRecording(start.Format(long_form), stop.Format(long_form), username, title, channel, "0")
+
+		count += 1
+	}
+
+	if count > 0 {
+		logMessage("info", fmt.Sprintf("Started %d recordings due to subscriptions", count), nil)
 	}
 
 	return nil
@@ -774,8 +781,7 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	if deleteform != "" {
 		err := deleteRecording(deleteform)
 		if err != nil {
-			logMessage("error", "Could not delete recording", err)
-			return
+			logMessage("warn", "Could not delete recording", err)
 		}
 
 		// File deleted, redirect back to archive.
@@ -813,6 +819,7 @@ func archivePageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	d := make(map[string]interface{})
 	d["Files"] = fs
 	d["BaseUrl"] = config.BaseUrl
+	d["Title"] = "Arkiv"
 	w.Write(getPage("archive.html", d))
 }
 
@@ -1260,6 +1267,12 @@ func main() {
 	err := loadPlannedRecordings()
 	if err != nil {
 		logMessage("error", "Failed to initialize recordings", err)
+	}
+
+	// We also check if there are any subscriptions we should add
+	err = checkSubscriptions()
+	if err != nil {
+		logMessage("error", "Could not check and refresh the subscriptions", err)
 	}
 
 	// Start a thread checking for stopped streams, killing them if no one are watching.
