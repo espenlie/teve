@@ -33,5 +33,6 @@ for cname, url in stream_urls.iteritems():
         endpoint = base_url + api_endpoint + "?" + urllib.urlencode(params)
         try:
             urllib.urlopen(endpoint)
-        except:
+        except Exception as err:
+            print "Got error loading channel for %s: %s" % (cname, err)
             pass
