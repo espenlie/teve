@@ -598,7 +598,8 @@ func startSeriesSubscription(w http.ResponseWriter, r *auth.AuthenticatedRequest
 	weekday, err := strconv.Atoi(r.FormValue("weekday"))
 	t, err := strconv.Atoi(r.FormValue("time"))
 	if err != nil {
-		logMessage("error", "Could not parse subscription time", err)
+		logMessage("warn", "Could not parse subscription time", err)
+		http.Redirect(w, &(r.Request), config.BaseUrl, 302)
 	}
 
 	interval := []int{addHoursToInt(t, -config.SubIntervalSize), addHoursToInt(t, config.SubIntervalSize)}
@@ -606,13 +607,15 @@ func startSeriesSubscription(w http.ResponseWriter, r *auth.AuthenticatedRequest
 	// Insert the subscription
 	err = insertSubscription(title, weekday, interval, channel, r.Username)
 	if err != nil {
-		logMessage("error", "Could not insert the subscription", err)
+		logMessage("warn", "Could not insert the subscription", err)
+		http.Redirect(w, &(r.Request), config.BaseUrl, 302)
 	}
 
 	// And check if we should start a recording right away.
 	err = checkSubscriptions()
 	if err != nil {
-		logMessage("error", "Could not check and refresh the subscriptions", err)
+		logMessage("warn", "Could not check and refresh the subscriptions", err)
+		http.Redirect(w, &(r.Request), config.BaseUrl, 302)
 	}
 
 	// Redirect to front-page.
