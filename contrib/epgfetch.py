@@ -12,7 +12,9 @@ def main():
     config = json.load(open(sys.argv[1]))
 
     # Get the number of days to fetch EPG-data for in config.
-    days = config["EpgFetchDays"] if "EpgFetchDays" in config else 4
+    days = config.get("EpgFetchDays", 4)
+
+    modus = config.get("EPGmode", "js.gz") # or 'xml.gz'
 
     # Cache or something for each channel, so we dont do dupliacte requests.
     channel_cache = {}
@@ -41,40 +43,73 @@ def main():
             { 'epg': 'supertv.nrk.no', 'ui': 'NRK Super'},
             { 'epg': 'cnn.com',       'ui': 'CNN International'},
     ]
-    base = "http://xmltv.xmltv.se"
+
+    base = "http://xmltv.xmltv.se" if modus == "xml.gz" else "http://json.xmltv.se"
     dates = [datetime.today() + timedelta(days=i) for i in range(0,days)]
     conn = psycopg2.connect("host=%s dbname=%s user=%s password=%s" % (config["DBHost"], config["DBName"], config["DBUser"], config["DBPass"]))
     cur = conn.cursor()
 
-    # Delete all existing data in epg-db.
-    cur.execute("DELETE FROM epg")
-
     for date in dates:
         for channel in channels:
-            # Get from cache, or add it to cache if not found.
-            channel_key = channel["epg"] + "_" + date.strftime("%Y-%m-%d")
-            if channel_key not in channel_cache:
-              resp = urllib2.urlopen("%s/%s.xml.gz" % (base, channel_key))
-              compr = StringIO.StringIO()
-              compr.write(resp.read())
-              compr.seek(0)
-              f = gzip.GzipFile(fileobj=compr, mode='rb')
-              channel_cache[channel_key] = objectify.fromstring(f.read())
-            root = channel_cache[channel_key]
+          # Delete all existing data for this channel in epg-db.
+          cur.execute("DELETE FROM epg WHERE channel=%s", (channel["ui"],))
 
-            if not hasattr(root, 'programme'):
-                continue
-            for programme in root["programme"]:
-                d = {}
-                start = parser.parse(programme.attrib["start"]).isoformat()
-                stop = parser.parse(programme.attrib["stop"]).isoformat()
-                title = unicode(programme["title"])
-                description = unicode(programme["desc"]) if hasattr(programme, "desc") else ""
-                ch = channel["ui"]
-                cur.execute("INSERT INTO epg(start,stop,title,channel,description) VALUES(%s,%s,%s,%s,%s)",(start,stop,title.strip(),ch,description))
+          # Get from cache, or add it to cache if not found.
+          channel_key = channel["epg"] + "_" + date.strftime("%Y-%m-%d")
+          if channel_key not in channel_cache:
+            try:
+              resp = urllib2.urlopen("%s/%s.%s" % (base, channel_key, modus))
+            except Exception as exp:
+              print "Got exception fetching %s" % channel_key
+              raise(exp)
+            compr = StringIO.StringIO()
+            compr.write(resp.read())
+            compr.seek(0)
+            f = gzip.GzipFile(fileobj=compr, mode='rb')
+            channel_cache[channel_key] = f.read()
+
+          parse_channel(channel_cache[channel_key], cur, channel, mode=modus)
+          time.sleep(0.05)
     conn.commit()
     cur.close()
     conn.close()
+
+def parse_channel(inp, cur, channel, mode="xml.gz"):
+  programmes = []
+  if mode == "xml.gz":
+    root = objectify.fromstring(inp)
+    if not hasattr(root, 'programme'):
+        return
+    for programme in root["programme"]:
+        d = {}
+        d["start"] = parser.parse(programme.attrib["start"]).isoformat()
+        d["stop"] = parser.parse(programme.attrib["stop"]).isoformat()
+        d["title"] = unicode(programme["title"])
+        d["description"] = unicode(programme["desc"]) if hasattr(programme, "desc") else ""
+        programmes.append(d)
+  elif mode == "js.gz":
+    root = json.loads(inp)["jsontv"]
+    if not "programme" in root:
+      return
+    for programme in root["programme"]:
+      d = {}
+      # Convert times from epoch.
+      d["start"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(int(programme["start"])))
+      d["stop"] = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(int(programme["stop"])))
+
+      # They differientiate betwen english and norwegian titles. We preffer norwegian.
+      titles = programme.get("title", {})
+      d["title"] = unicode(titles.get("no")) if titles.get("no") else unicode(titles.get("en", ""))
+
+      # Same with descriptions.
+      descriptions = programme.get("desc", {})
+      d["description"] = unicode(descriptions.get("no")) if descriptions.get("no") else unicode(descriptions.get("en", ""))
+      programmes.append(d)
+
+  # Insert all found programmes.
+  for p in programmes:
+    insert = (p["start"], p["stop"],p["title"].strip(),channel["ui"],p["description"].strip())
+    cur.execute("INSERT INTO epg(start,stop,title,channel,description) VALUES(%s,%s,%s,%s,%s)",insert)
 
 if __name__ == "__main__":
     main()

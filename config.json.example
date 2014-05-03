@@ -41,6 +41,8 @@
 
   "AutoStopInterval: 3,
 
+  "EPGmode": "js.gz",
+
   "DBHost" : "localhost",
   "DBName" : "epg",
   "DBUser" : "epguser",
