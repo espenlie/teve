@@ -1049,6 +1049,10 @@ func uniPageHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
 	w.Write(getPage("index.html", d))
 }
 
+func fileServerHandler(w http.ResponseWriter, r *auth.AuthenticatedRequest) {
+	http.ServeFile(w, &(r.Request), r.URL.Path[1:])
+}
+
 func countStream(pid int, user User) string {
 	var cmd string
 	if config.CubemapConfig != "" {
@@ -1291,6 +1295,7 @@ func main() {
 	http.HandleFunc("/archive", authenticator.Wrap(archivePageHandler))
 	http.HandleFunc("/startSubscription", authenticator.Wrap(startSeriesSubscription))
 	http.HandleFunc("/deleteSubscription", authenticator.Wrap(removeSubscriptionHandler))
+	http.HandleFunc("/"+config.RecordingsFolder+"/", authenticator.Wrap(fileServerHandler))
 
 	// No auth
 	http.HandleFunc("/checkSubscriptions", checkSubscriptionsHandler)
@@ -1299,7 +1304,6 @@ func main() {
 
 	// Static content, including video-files of old recordings.
 	http.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
-	http.Handle("/"+config.RecordingsFolder+"/", http.FileServer(http.Dir("")))
 
 	if config.Debug {
 		logMessage("debug", "Serverer nettsiden på http://localhost:"+config.WebPort, nil)
