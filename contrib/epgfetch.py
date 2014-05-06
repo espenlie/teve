@@ -49,10 +49,10 @@ def main():
     conn = psycopg2.connect("host=%s dbname=%s user=%s password=%s" % (config["DBHost"], config["DBName"], config["DBUser"], config["DBPass"]))
     cur = conn.cursor()
 
-    for date in dates:
-        for channel in channels:
+    for channel in channels:
+        cur.execute("DELETE FROM epg WHERE channel=%s", (channel["ui"],))
+        for date in dates:
           # Delete all existing data for this channel in epg-db.
-          cur.execute("DELETE FROM epg WHERE channel=%s", (channel["ui"],))
 
           # Get from cache, or add it to cache if not found.
           channel_key = channel["epg"] + "_" + date.strftime("%Y-%m-%d")
