@@ -50,10 +50,12 @@ def main():
     cur = conn.cursor()
 
     for channel in channels:
+        # Delete all existing data for this channel in epg-db.
         cur.execute("DELETE FROM epg WHERE channel=%s", (channel["ui"],))
-        for date in dates:
-          # Delete all existing data for this channel in epg-db.
+        conn.commit()
 
+        progs = []
+        for date in dates:
           # Get from cache, or add it to cache if not found.
           channel_key = channel["epg"] + "_" + date.strftime("%Y-%m-%d")
           if channel_key not in channel_cache:
@@ -68,13 +70,21 @@ def main():
             f = gzip.GzipFile(fileobj=compr, mode='rb')
             channel_cache[channel_key] = f.read()
 
-          parse_channel(channel_cache[channel_key], cur, channel, mode=modus)
+          progs.extend(parse_channel(channel_cache[channel_key], channel, mode=modus))
           time.sleep(0.05)
+
+        # Insert all found programmes, with a multi-insert.
+        insert_vals = []
+        for p in progs:
+          insert = (p["start"],p["stop"],p["title"].strip(),channel["ui"],p["description"].strip())
+          insert_vals.append(insert)
+        args_str = ",".join(cur.mogrify("(%s,%s,%s,%s,%s)", x) for x in insert_vals)
+        cur.execute("INSERT INTO epg(start,stop,title,channel,description) VALUES" + args_str)
     conn.commit()
     cur.close()
     conn.close()
 
-def parse_channel(inp, cur, channel, mode="xml.gz"):
+def parse_channel(inp, channel, mode="xml.gz"):
   programmes = []
   if mode == "xml.gz":
     root = objectify.fromstring(inp)
@@ -105,11 +115,7 @@ def parse_channel(inp, cur, channel, mode="xml.gz"):
       descriptions = programme.get("desc", {})
       d["description"] = unicode(descriptions.get("no")) if descriptions.get("no") else unicode(descriptions.get("en", ""))
       programmes.append(d)
-
-  # Insert all found programmes.
-  for p in programmes:
-    insert = (p["start"], p["stop"],p["title"].strip(),channel["ui"],p["description"].strip())
-    cur.execute("INSERT INTO epg(start,stop,title,channel,description) VALUES(%s,%s,%s,%s,%s)",insert)
+  return programmes
 
 if __name__ == "__main__":
     main()
