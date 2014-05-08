@@ -466,7 +466,7 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	start, err := time.Parse(layout, sstart)
 	stop, err := time.Parse(layout, sstop)
 	if err != nil {
-		fmt.Println(err.Error())
+		logMessage("warn", "Could not parse time and thus not start recording", err)
 		return
 	}
 
@@ -523,7 +523,7 @@ func startRecording(sstart, sstop, username, title, channel, transcode string) {
 	// Start the recording and save to disk.
 	err = cmd.Start()
 	if err != nil {
-		fmt.Println(err.Error())
+		logMessage("warn", "Could not start VLC-command", err)
 		return
 	}
 
