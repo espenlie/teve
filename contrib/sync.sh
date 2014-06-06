@@ -1,6 +1,6 @@
 #!/bin/bash
-BASEDIR=$(pwd -P)
-CONFIG=$BASEDIR/../config.json
+BASEDIR="$(dirname $(readlink -e $0))";
+CONFIG="$BASEDIR/../config.json";
 
 # Run various scripts, fetching EPG and so forth.
 python $BASEDIR/epgfetch.py $CONFIG
